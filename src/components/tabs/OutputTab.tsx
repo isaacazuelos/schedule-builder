@@ -82,11 +82,12 @@ export default function OutputTab() {
 
 // ─── HTML generation ─────────────────────────────────────────────────────────
 
+// UCalgary brand palette: phones → gold family, in-person → red family
 const SHIFT_COLORS: Record<ShiftType, string> = {
-  'phones-am': '#cfe2ff',
-  'phones-pm': '#b6d4fe',
-  'inperson-am': '#d1e7dd',
-  'inperson-pm': '#a3cfbb',
+  'phones-am': '#fff3b0',
+  'phones-pm': '#ffe066',
+  'inperson-am': '#ffd0d5',
+  'inperson-pm': '#ffaab3',
 };
 
 function buildOutputHtml(
