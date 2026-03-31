@@ -39,9 +39,10 @@ type Action =
 
 // ─── Initial state ────────────────────────────────────────────────────────────
 
-function currentYearMonth(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+function nextYearMonth(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
 const initialState: AppState = {
@@ -52,7 +53,7 @@ const initialState: AppState = {
   holidays: [],
   slotCounts: { ...DEFAULT_SLOT_COUNTS },
   weeklyCaps: DEFAULT_WEEKLY_CAPS.map(c => ({ ...c, maxPerType: { ...c.maxPerType } })),
-  targetMonth: currentYearMonth(),
+  targetMonth: nextYearMonth(),
   schedule: null,
   solveStatus: 'idle',
 };
