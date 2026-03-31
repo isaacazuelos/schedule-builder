@@ -41,36 +41,24 @@ export default function ConstraintsTab() {
       </div>
 
       <div className="section">
-        <div className="section-title">Question Person (QP) per Week</div>
+        <div className="section-title">Question Person (QP)</div>
         <div className="card">
           <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
-            How many QP people are assigned each week. Set to 0 to disable. A QP person covers
-            that role for the whole week and cannot be assigned other shifts that week.
+            When enabled, one person is assigned to each QP role per week and cannot be
+            assigned other shifts that week.
           </p>
-          <table className="data-table" style={{ width: 'auto' }}>
-            <thead>
-              <tr>
-                <th>Shift</th>
-                <th>People per week</th>
-              </tr>
-            </thead>
-            <tbody>
-              {WEEKLY_SHIFTS.map(s => (
-                <tr key={s}>
-                  <td><span className={`shift-chip shift-${s}`}>{SHIFT_LABELS[s]}</span></td>
-                  <td>
-                    <input
-                      type="number"
-                      min={0}
-                      max={5}
-                      value={state.slotCounts[s]}
-                      onChange={e => setSlotCount(s, Math.max(0, parseInt(e.target.value) || 0))}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {WEEKLY_SHIFTS.map(s => (
+              <label key={s} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={state.slotCounts[s] > 0}
+                  onChange={e => setSlotCount(s, e.target.checked ? 1 : 0)}
+                />
+                <span className={`shift-chip shift-${s}`}>{SHIFT_LABELS[s]}</span>
+              </label>
+            ))}
+          </div>
         </div>
       </div>
 
