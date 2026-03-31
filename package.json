@@ -9,7 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "javascript-lp-solver": "^0.4.24",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "uuid": "^9.0.1"
