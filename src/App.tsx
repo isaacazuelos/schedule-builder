@@ -2,7 +2,6 @@ import { AppProvider, useApp } from './store/AppContext';
 import StaffTab from './components/tabs/StaffTab';
 import AvailabilityTab from './components/tabs/AvailabilityTab';
 import ConstraintsTab from './components/tabs/ConstraintsTab';
-import GenerateTab from './components/tabs/GenerateTab';
 import OutputTab from './components/tabs/OutputTab';
 import type { TabName } from './types';
 
@@ -10,8 +9,7 @@ const TABS: { id: TabName; label: string }[] = [
   { id: 'staff', label: 'Staff' },
   { id: 'availability', label: 'Availability' },
   { id: 'constraints', label: 'Constraints' },
-  { id: 'generate', label: 'Generate' },
-  { id: 'output', label: 'Output' },
+  { id: 'output', label: 'Schedule' },
 ];
 
 function AppInner() {
@@ -41,7 +39,6 @@ function AppInner() {
         {state.activeTab === 'staff' && <StaffTab />}
         {state.activeTab === 'availability' && <AvailabilityTab />}
         {state.activeTab === 'constraints' && <ConstraintsTab />}
-        {state.activeTab === 'generate' && <GenerateTab />}
         {state.activeTab === 'output' && <OutputTab />}
       </main>
     </div>

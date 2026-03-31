@@ -1,6 +1,6 @@
 export type Role = 'OP2' | 'SA1' | 'SA2';
 export type ShiftType = 'phones-am' | 'phones-pm' | 'inperson-am' | 'inperson-pm';
-export type TabName = 'staff' | 'availability' | 'constraints' | 'generate' | 'output';
+export type TabName = 'staff' | 'availability' | 'constraints' | 'output';
 
 export const ALL_SHIFTS: ShiftType[] = ['phones-am', 'phones-pm', 'inperson-am', 'inperson-pm'];
 export const ALL_ROLES: Role[] = ['OP2', 'SA1', 'SA2'];
