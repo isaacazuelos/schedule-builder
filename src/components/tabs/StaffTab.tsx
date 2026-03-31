@@ -152,8 +152,8 @@ export default function StaffTab() {
           </p>
           <ul className="muted" style={{ fontSize: 13, marginTop: 8, paddingLeft: 20, lineHeight: 1.8 }}>
             <li><strong>OP2</strong> — Phones AM, Phones PM</li>
-            <li><strong>SA1</strong> — all shift types</li>
-            <li><strong>SA2</strong> — all shift types</li>
+            <li><strong>SA1</strong> — all shift types (including QP AM, QP PM)</li>
+            <li><strong>SA2</strong> — all shift types (including QP AM, QP PM)</li>
           </ul>
           <p className="muted mt-8" style={{ fontSize: 13 }}>
             You can override individual checkboxes above after adding a person.

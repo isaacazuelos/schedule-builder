@@ -193,11 +193,13 @@ label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .badge-sa2 { background: #ffe5cc; color: #7a3200; }   /* orange tint */
 
 /* ─── Shift colors ──────────────────────────────────────────────────────────── */
-/* Phones: gold family; In-person: red family */
+/* Phones: gold family; In-person: red family; QP: teal family */
 .shift-phones-am   { background: #fff3b0; color: #5c4400; }
 .shift-phones-pm   { background: #ffe066; color: #5c4400; }
 .shift-inperson-am { background: #ffd0d5; color: #7a000e; }
 .shift-inperson-pm { background: #ffaab3; color: #7a000e; }
+.shift-qp-am       { background: #cff4fc; color: #055160; }
+.shift-qp-pm       { background: #9eeaf9; color: #055160; }
 
 .shift-chip {
   display: inline-block;
@@ -252,7 +254,7 @@ label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 /* ─── Calendar ──────────────────────────────────────────────────────────────── */
 .cal-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 4px;
 }
 .cal-header {

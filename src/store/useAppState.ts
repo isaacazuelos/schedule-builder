@@ -26,8 +26,8 @@ type Action =
   | { type: 'UPDATE_STAFF_ROLE'; id: string; role: Role }
   | { type: 'TOGGLE_TRAINED_SHIFT'; id: string; shift: ShiftType }
   | { type: 'SET_CSV_UNAVAILABILITY'; staffId: string; dates: string[] }
-  | { type: 'TOGGLE_OVERRIDE'; staffId: string; date: string; available: boolean }
-  | { type: 'REMOVE_OVERRIDE'; staffId: string; date: string }
+  | { type: 'TOGGLE_OVERRIDE'; staffId: string; date: string; period: 'am' | 'pm'; available: boolean }
+  | { type: 'REMOVE_OVERRIDE'; staffId: string; date: string; period: 'am' | 'pm' }
   | { type: 'TOGGLE_HOLIDAY'; date: string }
   | { type: 'SET_SLOT_COUNT'; shift: ShiftType; count: number }
   | { type: 'SET_WEEKLY_CAP'; role: Role; maxShiftsPerWeek: number }
@@ -156,19 +156,17 @@ function reducer(state: AppState, action: Action): AppState {
       };
 
     case 'TOGGLE_OVERRIDE': {
-      const existing = state.overrides.find(
-        o => o.staffId === action.staffId && o.date === action.date
-      );
+      const match = (o: DateOverride) =>
+        o.staffId === action.staffId && o.date === action.date && o.period === action.period;
+      const existing = state.overrides.find(match);
       let overrides: DateOverride[];
       if (existing && existing.available === action.available) {
-        // Same state — remove override
-        overrides = state.overrides.filter(
-          o => !(o.staffId === action.staffId && o.date === action.date)
-        );
+        // Same state — remove override (toggle off)
+        overrides = state.overrides.filter(o => !match(o));
       } else {
         overrides = [
-          ...state.overrides.filter(o => !(o.staffId === action.staffId && o.date === action.date)),
-          { staffId: action.staffId, date: action.date, available: action.available },
+          ...state.overrides.filter(o => !match(o)),
+          { staffId: action.staffId, date: action.date, period: action.period, available: action.available },
         ];
       }
       return { ...state, overrides };
@@ -178,7 +176,7 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         overrides: state.overrides.filter(
-          o => !(o.staffId === action.staffId && o.date === action.date)
+          o => !(o.staffId === action.staffId && o.date === action.date && o.period === action.period)
         ),
       };
 
@@ -265,8 +263,8 @@ export function useAppState() {
   const updateStaffRole = useCallback((id: string, role: Role) => dispatch({ type: 'UPDATE_STAFF_ROLE', id, role }), []);
   const toggleTrainedShift = useCallback((id: string, shift: ShiftType) => dispatch({ type: 'TOGGLE_TRAINED_SHIFT', id, shift }), []);
   const setCsvUnavailability = useCallback((staffId: string, dates: string[]) => dispatch({ type: 'SET_CSV_UNAVAILABILITY', staffId, dates }), []);
-  const toggleOverride = useCallback((staffId: string, date: string, available: boolean) => dispatch({ type: 'TOGGLE_OVERRIDE', staffId, date, available }), []);
-  const removeOverride = useCallback((staffId: string, date: string) => dispatch({ type: 'REMOVE_OVERRIDE', staffId, date }), []);
+  const toggleOverride = useCallback((staffId: string, date: string, period: 'am' | 'pm', available: boolean) => dispatch({ type: 'TOGGLE_OVERRIDE', staffId, date, period, available }), []);
+  const removeOverride = useCallback((staffId: string, date: string, period: 'am' | 'pm') => dispatch({ type: 'REMOVE_OVERRIDE', staffId, date, period }), []);
   const toggleHoliday = useCallback((date: string) => dispatch({ type: 'TOGGLE_HOLIDAY', date }), []);
   const setSlotCount = useCallback((shift: ShiftType, count: number) => dispatch({ type: 'SET_SLOT_COUNT', shift, count }), []);
   const setWeeklyCap = useCallback((role: Role, max: number) => dispatch({ type: 'SET_WEEKLY_CAP', role, maxShiftsPerWeek: max }), []);
@@ -278,11 +276,14 @@ export function useAppState() {
   const clearAllStaff = useCallback(() => dispatch({ type: 'CLEAR_ALL_STAFF' }), []);
   const clearAvailability = useCallback(() => dispatch({ type: 'CLEAR_AVAILABILITY' }), []);
 
-  /** Compute effective availability: CSV + overrides combined */
+  /** Compute effective availability for a specific date and half-day period. */
   const isAvailable = useCallback(
-    (staffId: string, date: string): boolean => {
-      const override = state.overrides.find(o => o.staffId === staffId && o.date === date);
+    (staffId: string, date: string, period: 'am' | 'pm'): boolean => {
+      const override = state.overrides.find(
+        o => o.staffId === staffId && o.date === date && o.period === period
+      );
       if (override !== undefined) return override.available;
+      // CSV unavailability marks whole days (both periods)
       const csvDates = state.csvUnavailability[staffId] ?? [];
       return !csvDates.includes(date);
     },
