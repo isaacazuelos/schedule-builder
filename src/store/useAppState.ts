@@ -234,7 +234,8 @@ function reducer(state: AppState, action: Action): AppState {
         staff: action.config.staff,
         overrides: action.config.overrides,
         holidays: action.config.holidays,
-        slotCounts: action.config.slotCounts,
+        // Merge with defaults so old exported configs missing qp-am/qp-pm still work
+        slotCounts: { ...DEFAULT_SLOT_COUNTS, ...action.config.slotCounts },
         weeklyCaps: action.config.weeklyCaps,
         targetMonth: action.config.targetMonth,
         schedule: null,
