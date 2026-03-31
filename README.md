@@ -1,6 +1,8 @@
 # schedule-builder
 
-A tool for building role-based schedules for office workers. This is also me messing around with AI coding tools.
+> A tool for building role-based schedules for office workers. 
+
+This is also me messing around with AI coding tools.
 
 ## Build
 
@@ -9,7 +11,7 @@ npm install
 npm run build
 ```
 
-The output is a single self-contained file: `dist/index.html`. Open it directly in a browser or drop it into SharePoint — no server required.
+The output is a single self-contained file: `dist/index.html`. Open it directly in a browser. 
 
 ## Development
 
