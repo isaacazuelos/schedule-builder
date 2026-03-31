@@ -4,10 +4,34 @@ import type { Role, ShiftType } from '../../types';
 import { ALL_ROLES, ALL_SHIFTS, SHIFT_LABELS, DEFAULT_TRAINED_BY_ROLE } from '../../types';
 import { v4 as uuidv4 } from 'uuid';
 
+type SortCol = 'name' | 'role' | 'shifts';
+type SortDir = 'asc' | 'desc';
+
+const ROLE_ORDER: Record<string, number> = { OP2: 0, SA1: 1, SA2: 2 };
+
 export default function StaffTab() {
   const { state, addStaff, removeStaff, updateStaffName, updateStaffRole, toggleTrainedShift, clearAllStaff } = useApp();
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<Role>('SA1');
+  const [sortCol, setSortCol] = useState<SortCol | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  function handleSort(col: SortCol) {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+    }
+  }
+
+  const sortedStaff = sortCol === null ? state.staff : [...state.staff].sort((a, b) => {
+    let cmp = 0;
+    if (sortCol === 'name') cmp = a.name.localeCompare(b.name);
+    else if (sortCol === 'role') cmp = (ROLE_ORDER[a.role] ?? 0) - (ROLE_ORDER[b.role] ?? 0);
+    else if (sortCol === 'shifts') cmp = a.trainedShifts.length - b.trainedShifts.length;
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
 
   function handleAdd() {
     const name = newName.trim();
@@ -56,14 +80,21 @@ export default function StaffTab() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Role</th>
-                  <th>Trained Shifts</th>
+                  {(['name', 'role', 'shifts'] as SortCol[]).map(col => (
+                    <th
+                      key={col}
+                      onClick={() => handleSort(col)}
+                      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                    >
+                      {col === 'name' ? 'Name' : col === 'role' ? 'Role' : 'Trained Shifts'}
+                      {sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ' ⇅'}
+                    </th>
+                  ))}
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {state.staff.map(s => (
+                {sortedStaff.map(s => (
                   <tr key={s.id}>
                     <td>
                       <input
