@@ -11,21 +11,11 @@ export default function OutputTab() {
   const { state } = useApp();
   const previewRef = useRef<HTMLDivElement>(null);
   const { schedule, staff, holidays, targetMonth } = state;
+  const hasSchedule = schedule?.status === 'optimal';
 
-  if (!schedule || schedule.status !== 'optimal') {
-    return (
-      <div className="empty-state">
-        Generate a schedule first (Generate tab).
-        {schedule?.status === 'infeasible' && (
-          <p className="muted mt-8" style={{ fontSize: 13 }}>
-            The last solve attempt was infeasible. Adjust constraints or availability and try again.
-          </p>
-        )}
-      </div>
-    );
-  }
-
-  const outputHtml = buildOutputHtml(schedule.month, schedule.assignments, staff, holidays);
+  const outputHtml = hasSchedule
+    ? buildOutputHtml(schedule!.month, schedule!.assignments, staff, holidays)
+    : null;
 
   function handleCopy() {
     if (previewRef.current) {
@@ -42,20 +32,23 @@ export default function OutputTab() {
   }
 
   function handleDownload() {
-    exportScheduleHtml(outputHtml, schedule!.month);
+    exportScheduleHtml(outputHtml!, schedule!.month);
   }
 
   // ── Calendar grid data ──────────────────────────────────────────────────────
-  const allDays = getDaysInMonth(targetMonth);
+  const calMonth = hasSchedule ? schedule!.month : targetMonth;
+  const allDays = getDaysInMonth(calMonth);
   const weeks = buildWeekRows(allDays);
 
   const dayAssignments = new Map<string, { name: string; shift: ShiftType }[]>();
-  for (const [staffId, dateMap] of Object.entries(schedule.assignments)) {
-    const member = staff.find(s => s.id === staffId);
-    if (!member) continue;
-    for (const [date, shift] of Object.entries(dateMap)) {
-      if (!dayAssignments.has(date)) dayAssignments.set(date, []);
-      dayAssignments.get(date)!.push({ name: member.name, shift: shift as ShiftType });
+  if (hasSchedule) {
+    for (const [staffId, dateMap] of Object.entries(schedule!.assignments)) {
+      const member = staff.find(s => s.id === staffId);
+      if (!member) continue;
+      for (const [date, shift] of Object.entries(dateMap)) {
+        if (!dayAssignments.has(date)) dayAssignments.set(date, []);
+        dayAssignments.get(date)!.push({ name: member.name, shift: shift as ShiftType });
+      }
     }
   }
 
@@ -83,7 +76,7 @@ export default function OutputTab() {
                       {day.slice(8)}
                       {isHoliday && <span className="muted" style={{ fontSize: 10, marginLeft: 4 }}>Holiday</span>}
                     </div>
-                    {!isHoliday && assignments.length === 0 && (
+                    {!isHoliday && hasSchedule && assignments.length === 0 && (
                       <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>No assignments</div>
                     )}
                     {assignments
@@ -104,28 +97,38 @@ export default function OutputTab() {
         </div>
       </div>
 
-      {/* ── Export actions ── */}
-      <div className="section">
-        <div className="section-title">Export for SharePoint</div>
-        <div className="card">
-          <div className="row" style={{ marginBottom: 12 }}>
-            <button className="btn btn-primary" onClick={handleCopy}>
-              Copy HTML (for SharePoint paste)
-            </button>
-            <button className="btn btn-secondary" onClick={handleDownload}>
-              Download as HTML file
-            </button>
-          </div>
-          <p className="muted" style={{ fontSize: 12 }}>
-            Use "Copy HTML" then paste directly into a SharePoint page. Or download the file and upload.
-          </p>
-          <div
-            ref={previewRef}
-            dangerouslySetInnerHTML={{ __html: outputHtml }}
-            style={{ marginTop: 16, overflowX: 'auto' }}
-          />
+      {/* ── Status / export ── */}
+      {!hasSchedule && (
+        <div className={`status-banner ${schedule?.status === 'infeasible' ? 'status-banner--error' : 'status-banner--info'}`}>
+          {schedule?.status === 'infeasible'
+            ? schedule.message
+            : 'No schedule generated yet. Go to the Generate tab to run the solver.'}
         </div>
-      </div>
+      )}
+
+      {hasSchedule && (
+        <div className="section">
+          <div className="section-title">Export for SharePoint</div>
+          <div className="card">
+            <div className="row" style={{ marginBottom: 12 }}>
+              <button className="btn btn-primary" onClick={handleCopy}>
+                Copy HTML (for SharePoint paste)
+              </button>
+              <button className="btn btn-secondary" onClick={handleDownload}>
+                Download as HTML file
+              </button>
+            </div>
+            <p className="muted" style={{ fontSize: 12 }}>
+              Use "Copy HTML" then paste directly into a SharePoint page. Or download the file and upload.
+            </p>
+            <div
+              ref={previewRef}
+              dangerouslySetInnerHTML={{ __html: outputHtml! }}
+              style={{ marginTop: 16, overflowX: 'auto' }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
