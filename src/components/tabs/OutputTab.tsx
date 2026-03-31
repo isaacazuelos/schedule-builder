@@ -267,8 +267,8 @@ const SHIFT_COLORS: Record<ShiftType, string> = {
   'phones-pm':   '#ffe066',
   'inperson-am': '#ffd0d5',
   'inperson-pm': '#ffaab3',
-  'qp-am':       '#cff4fc',
-  'qp-pm':       '#9eeaf9',
+  'qp-am':       '#c8ead8',
+  'qp-pm':       '#8ecfb0',
 };
 
 function buildOutputHtml(

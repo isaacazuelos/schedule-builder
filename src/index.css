@@ -198,8 +198,8 @@ label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .shift-phones-pm   { background: #ffe066; color: #5c4400; }
 .shift-inperson-am { background: #ffd0d5; color: #7a000e; }
 .shift-inperson-pm { background: #ffaab3; color: #7a000e; }
-.shift-qp-am       { background: #cff4fc; color: #055160; }
-.shift-qp-pm       { background: #9eeaf9; color: #055160; }
+.shift-qp-am       { background: #c8ead8; color: #1a4d33; }
+.shift-qp-pm       { background: #8ecfb0; color: #1a4d33; }
 
 .shift-chip {
   display: inline-block;
