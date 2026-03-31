@@ -23,11 +23,9 @@ Starts a local dev server with hot reload at `http://localhost:5173`.
 
 ## Usage
 
-1. **Staff** — add staff members, set their role (OP2 / SA1 / SA2), and adjust which shift types they're trained on.
-2. **Availability** — upload Outlook calendar CSV exports (filename must contain the person's name) and/or click cells to add manual overrides. Mark holidays here too.
-3. **Constraints** — set how many slots each shift type needs per day, and weekly shift caps per role.
-4. **Generate** — pick the target month and run the scheduler. The ILP solver minimises the maximum total shifts assigned to any one person (minimax fairness).
-5. **Shift Calendar** — visual grid of the generated schedule.
-6. **Output** — copy the HTML calendar to paste into SharePoint, or download it as a file.
+1. **Schedule** — pick the target month, generate a schedule, and download the HTML file for SharePoint. Shows a summary and per-person shift breakdown after generating.
+2. **Staff** — add/remove staff, set roles (OP2 / SA1 / SA2), and adjust trained shift types. Export or import the staff list as CSV.
+3. **Availability** — upload Outlook calendar CSV exports (filename must contain the person's name) and/or click cells to add manual overrides. Mark holidays here too.
+4. **Constraints** — set how many shifts each type needs per day, and weekly shift caps per role.
 
-Config (staff, overrides, holidays, caps) can be exported and re-imported as JSON from the Staff tab.
+The staff list can be exported and re-imported as CSV from the Staff tab.
