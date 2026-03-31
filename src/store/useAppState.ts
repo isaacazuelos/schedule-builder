@@ -76,7 +76,7 @@ const EXAMPLE_STAFF: StaffMember[] = (
 }));
 
 const initialState: AppState = {
-  activeTab: 'staff',
+  activeTab: 'output',
   staff: EXAMPLE_STAFF,
   csvUnavailability: {},
   overrides: [],

@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 import { useApp } from '../../store/AppContext';
 import { getDaysInMonth, getWorkdays, fromDateString, formatMonth } from '../../utils/dateUtils';
 import { exportScheduleHtml } from '../../utils/exportImport';
@@ -10,7 +9,6 @@ const DOW_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
 export default function OutputTab() {
   const { state, setTargetMonth, setSolveStatus, setSchedule } = useApp();
-  const previewRef = useRef<HTMLDivElement>(null);
   const { schedule, staff, holidays, targetMonth } = state;
 
   const workdays = getWorkdays(targetMonth, holidays);
@@ -81,19 +79,6 @@ export default function OutputTab() {
   const outputHtml = hasSchedule
     ? buildOutputHtml(schedule!.month, schedule!.assignments, staff, holidays)
     : null;
-
-  function handleCopy() {
-    if (!previewRef.current) return;
-    const selection = window.getSelection();
-    if (!selection) return;
-    selection.removeAllRanges();
-    const range = document.createRange();
-    range.selectNodeContents(previewRef.current);
-    selection.addRange(range);
-    document.execCommand('copy');
-    selection.removeAllRanges();
-    alert('Schedule HTML copied to clipboard. Paste into SharePoint.');
-  }
 
   return (
     <div>
@@ -221,29 +206,18 @@ export default function OutputTab() {
       </div>
 
       {/* ── Export ── */}
-      {hasSchedule && (
-        <div className="section">
-          <div className="section-title">Export for SharePoint</div>
-          <div className="card">
-            <div className="row" style={{ marginBottom: 12 }}>
-              <button className="btn btn-primary" onClick={handleCopy}>
-                Copy HTML (for SharePoint paste)
-              </button>
-              <button className="btn btn-secondary" onClick={() => exportScheduleHtml(outputHtml!, schedule!.month)}>
-                Download as HTML file
-              </button>
-            </div>
-            <p className="muted" style={{ fontSize: 12 }}>
-              Use "Copy HTML" then paste directly into a SharePoint page. Or download the file and upload.
-            </p>
-            <div
-              ref={previewRef}
-              dangerouslySetInnerHTML={{ __html: outputHtml! }}
-              style={{ marginTop: 16, overflowX: 'auto' }}
-            />
-          </div>
+      <div className="section">
+        <div className="section-title">Export for SharePoint</div>
+        <div className="card">
+          <button
+            className="btn btn-secondary"
+            disabled={!hasSchedule}
+            onClick={() => exportScheduleHtml(outputHtml!, schedule!.month)}
+          >
+            Download as HTML file
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -6,10 +6,10 @@ import OutputTab from './components/tabs/OutputTab';
 import type { TabName } from './types';
 
 const TABS: { id: TabName; label: string }[] = [
+  { id: 'output', label: 'Schedule' },
   { id: 'staff', label: 'Staff' },
   { id: 'availability', label: 'Availability' },
   { id: 'constraints', label: 'Constraints' },
-  { id: 'output', label: 'Schedule' },
 ];
 
 function AppInner() {
