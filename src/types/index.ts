@@ -65,7 +65,7 @@ export interface WeeklyCap {
 }
 
 export const DEFAULT_WEEKLY_CAPS: WeeklyCap[] = [
-  { role: 'OP2', maxShiftsPerWeek: 5, maxPerType: {} },
+  { role: 'OP2', maxShiftsPerWeek: 5, maxPerType: { 'qp-am': 0, 'qp-pm': 0 } },
   { role: 'SA1', maxShiftsPerWeek: 5, maxPerType: {} },
   { role: 'SA2', maxShiftsPerWeek: 5, maxPerType: {} },
 ];
