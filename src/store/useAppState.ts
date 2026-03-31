@@ -35,7 +35,9 @@ type Action =
   | { type: 'SET_TARGET_MONTH'; month: string }
   | { type: 'SET_SOLVE_STATUS'; status: 'idle' | 'solving' }
   | { type: 'SET_SCHEDULE'; schedule: Schedule }
-  | { type: 'LOAD_CONFIG'; config: ExportedConfig };
+  | { type: 'LOAD_CONFIG'; config: ExportedConfig }
+  | { type: 'CLEAR_ALL_STAFF' }
+  | { type: 'CLEAR_AVAILABILITY' };
 
 // ─── Initial state ────────────────────────────────────────────────────────────
 
@@ -240,6 +242,12 @@ function reducer(state: AppState, action: Action): AppState {
         schedule: null,
       };
 
+    case 'CLEAR_ALL_STAFF':
+      return { ...state, staff: [], csvUnavailability: {}, overrides: [] };
+
+    case 'CLEAR_AVAILABILITY':
+      return { ...state, csvUnavailability: {}, overrides: [] };
+
     default:
       return state;
   }
@@ -267,6 +275,8 @@ export function useAppState() {
   const setSolveStatus = useCallback((status: 'idle' | 'solving') => dispatch({ type: 'SET_SOLVE_STATUS', status }), []);
   const setSchedule = useCallback((schedule: Schedule) => dispatch({ type: 'SET_SCHEDULE', schedule }), []);
   const loadConfig = useCallback((config: ExportedConfig) => dispatch({ type: 'LOAD_CONFIG', config }), []);
+  const clearAllStaff = useCallback(() => dispatch({ type: 'CLEAR_ALL_STAFF' }), []);
+  const clearAvailability = useCallback(() => dispatch({ type: 'CLEAR_AVAILABILITY' }), []);
 
   /** Compute effective availability: CSV + overrides combined */
   const isAvailable = useCallback(
@@ -298,6 +308,8 @@ export function useAppState() {
     setSolveStatus,
     setSchedule,
     loadConfig,
+    clearAllStaff,
+    clearAvailability,
     isAvailable,
   };
 }

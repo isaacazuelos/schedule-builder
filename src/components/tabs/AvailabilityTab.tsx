@@ -4,7 +4,7 @@ import { parseOutlookCsv } from '../../utils/csvParser';
 import { getDaysInMonth, dowLabel, fromDateString } from '../../utils/dateUtils';
 
 export default function AvailabilityTab() {
-  const { state, setCsvUnavailability, toggleOverride, toggleHoliday } = useApp();
+  const { state, setCsvUnavailability, toggleOverride, toggleHoliday, clearAvailability } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const allDays = getDaysInMonth(state.targetMonth);
@@ -112,7 +112,12 @@ export default function AvailabilityTab() {
       </div>
 
       <div className="section">
-        <div className="section-title">Availability Grid</div>
+        <div className="row" style={{ marginBottom: 8 }}>
+          <div className="section-title" style={{ marginBottom: 0 }}>Availability Grid</div>
+          <button className="btn btn-danger btn-sm" onClick={() => { if (confirm('Clear all CSV imports and manual overrides?')) clearAvailability(); }}>
+            Reset availability
+          </button>
+        </div>
         <p className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
           Click a cell to toggle availability. Green = available, Red = unavailable.
           Holidays are grey. Changes here override CSV data for that cell.

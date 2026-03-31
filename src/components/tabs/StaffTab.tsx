@@ -5,7 +5,7 @@ import { ALL_ROLES, ALL_SHIFTS, SHIFT_LABELS, DEFAULT_TRAINED_BY_ROLE } from '..
 import { v4 as uuidv4 } from 'uuid';
 
 export default function StaffTab() {
-  const { state, addStaff, removeStaff, updateStaffName, updateStaffRole, toggleTrainedShift } = useApp();
+  const { state, addStaff, removeStaff, updateStaffName, updateStaffRole, toggleTrainedShift, clearAllStaff } = useApp();
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<Role>('SA1');
 
@@ -41,7 +41,14 @@ export default function StaffTab() {
       </div>
 
       <div className="section">
-        <div className="section-title">Staff ({state.staff.length})</div>
+        <div className="row" style={{ marginBottom: 10 }}>
+          <div className="section-title" style={{ marginBottom: 0 }}>Staff ({state.staff.length})</div>
+          {state.staff.length > 0 && (
+            <button className="btn btn-danger btn-sm" onClick={() => { if (confirm('Remove all staff?')) clearAllStaff(); }}>
+              Clear all
+            </button>
+          )}
+        </div>
         {state.staff.length === 0 ? (
           <div className="empty-state">No staff added yet.</div>
         ) : (
