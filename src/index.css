@@ -1,0 +1,299 @@
+/* ─── Reset & base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* UCalgary brand colours */
+  --color-red: #d6001c;
+  --color-red-hover: #b00017;
+  --color-gold: #ffcd00;
+  --color-gold-hover: #e6b800;
+
+  --color-bg: #f5f5f5;
+  --color-surface: #ffffff;
+  --color-border: #d9d9d9;
+  --color-border-strong: #aaaaaa;
+  --color-text: #1a1a1a;
+  --color-text-muted: #666666;
+
+  --color-primary: var(--color-red);
+  --color-primary-hover: var(--color-red-hover);
+  --color-primary-text: #ffffff;
+
+  /* Keep danger distinct from brand red */
+  --color-danger: #b00020;
+  --color-danger-hover: #8c001a;
+
+  --color-tab-bg: #efefef;
+  --color-tab-active: #ffffff;
+
+  --radius: 3px;
+  --shadow: 0 1px 3px rgba(0,0,0,.10);
+
+  /* UCalgary recommends Calibri for everyday use */
+  font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', Arial, sans-serif;
+  font-size: 14px;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+body { min-height: 100vh; }
+
+/* ─── Layout ────────────────────────────────────────────────────────────────── */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  background: var(--color-red);
+  color: #ffffff;
+  padding: 14px 24px;
+  border-bottom: 4px solid var(--color-gold);
+}
+.app-header h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+
+/* ─── Tabs ──────────────────────────────────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  background: var(--color-tab-bg);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 12px;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--color-text-muted);
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  transition: color .15s, border-color .15s;
+}
+.tab-btn:hover { color: var(--color-text); }
+.tab-btn--active {
+  color: var(--color-red);
+  border-bottom-color: var(--color-gold);
+  background: var(--color-tab-active);
+}
+
+.tab-content {
+  flex: 1;
+  padding: 20px;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ─── Section / card ────────────────────────────────────────────────────────── */
+.section { margin-bottom: 24px; }
+.section-title {
+  font-size: .8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--color-red);
+  margin-bottom: 10px;
+}
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+/* ─── Buttons ───────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 16px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: background .15s, border-color .15s, color .15s;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.btn-primary { background: var(--color-red); color: #fff; border-color: var(--color-red); }
+.btn-primary:hover:not(:disabled) { background: var(--color-red-hover); border-color: var(--color-red-hover); }
+
+.btn-secondary { background: #fff; color: var(--color-text); border-color: var(--color-border-strong); }
+.btn-secondary:hover:not(:disabled) { background: var(--color-tab-bg); }
+
+.btn-danger { background: var(--color-danger); color: #fff; border-color: var(--color-danger); }
+.btn-danger:hover:not(:disabled) { background: var(--color-danger-hover); }
+
+.btn-sm { padding: 3px 10px; font-size: 12px; }
+
+/* ─── Forms ─────────────────────────────────────────────────────────────────── */
+input[type="text"], input[type="month"], input[type="number"], select {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  padding: 5px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--color-text);
+  background: #fff;
+  outline: none;
+}
+input[type="text"]:focus, input[type="month"]:focus,
+input[type="number"]:focus, select:focus {
+  border-color: var(--color-red);
+  box-shadow: 0 0 0 2px rgba(214,0,28,.15);
+}
+input[type="number"] { width: 70px; }
+label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+/* ─── Tables ────────────────────────────────────────────────────────────────── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.data-table th, .data-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+.data-table th {
+  background: var(--color-bg);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.data-table tbody tr:hover { background: #fff5f5; }
+.data-table td:last-child { white-space: nowrap; }
+
+/* ─── Badges / chips ────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+}
+/* Role badges using UCalgary palette */
+.badge-op2 { background: #ffeab3; color: #7a5c00; }   /* gold tint */
+.badge-sa1 { background: #ffd0d5; color: #7a000e; }   /* red tint */
+.badge-sa2 { background: #ffe5cc; color: #7a3200; }   /* orange tint */
+
+/* ─── Shift colors ──────────────────────────────────────────────────────────── */
+/* Phones: gold family; In-person: red family */
+.shift-phones-am   { background: #fff3b0; color: #5c4400; }
+.shift-phones-pm   { background: #ffe066; color: #5c4400; }
+.shift-inperson-am { background: #ffd0d5; color: #7a000e; }
+.shift-inperson-pm { background: #ffaab3; color: #7a000e; }
+
+.shift-chip {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ─── Availability grid ─────────────────────────────────────────────────────── */
+.avail-grid {
+  display: grid;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: auto;
+  max-height: 500px;
+}
+.avail-grid-header,
+.avail-grid-row { display: contents; }
+.avail-cell {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.avail-cell--name {
+  font-weight: 700;
+  background: var(--color-bg);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+.avail-cell--date {
+  font-weight: 700;
+  background: var(--color-bg);
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.avail-cell--data {
+  text-align: center;
+  cursor: pointer;
+}
+.avail-cell--avail   { background: #e8f5e9; }
+.avail-cell--unavail { background: #ffd0d5; color: var(--color-danger); }
+.avail-cell--holiday { background: #efefef; color: var(--color-text-muted); }
+.avail-cell--weekend { background: #fafafa; color: #bbb; }
+
+/* ─── Calendar ──────────────────────────────────────────────────────────────── */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+.cal-header {
+  font-weight: 700;
+  text-align: center;
+  padding: 4px;
+  font-size: 12px;
+  color: var(--color-red);
+}
+.cal-day {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 6px;
+  min-height: 80px;
+  background: var(--color-surface);
+}
+.cal-day--holiday { background: #efefef; }
+.cal-day-label { font-size: 11px; color: var(--color-text-muted); margin-bottom: 4px; }
+.cal-day-date  { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.cal-assignment { font-size: 11px; margin-bottom: 2px; display: flex; gap: 4px; align-items: center; }
+
+/* ─── Status banner ─────────────────────────────────────────────────────────── */
+.status-banner {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+.status-banner--info    { background: #fff8d6; border: 1px solid var(--color-gold); color: #5c4400; }
+.status-banner--success { background: #e8f5e9; border: 1px solid #a5d6a7; color: #1b5e20; }
+.status-banner--error   { background: #ffd0d5; border: 1px solid #f5a3ab; color: #7a000e; }
+.status-banner--warning { background: #fff3b0; border: 1px solid var(--color-gold); color: #5c4400; }
+
+/* ─── Misc ──────────────────────────────────────────────────────────────────── */
+.row     { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.col     { display: flex; flex-direction: column; gap: 8px; }
+.mt-8  { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.muted { color: var(--color-text-muted); }
+.empty-state {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--color-text-muted);
+}
