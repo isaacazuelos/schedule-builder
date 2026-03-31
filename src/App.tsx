@@ -2,7 +2,6 @@ import { AppProvider, useApp } from './store/AppContext';
 import StaffTab from './components/tabs/StaffTab';
 import AvailabilityTab from './components/tabs/AvailabilityTab';
 import ConstraintsTab from './components/tabs/ConstraintsTab';
-import ShiftCalendarTab from './components/tabs/ShiftCalendarTab';
 import GenerateTab from './components/tabs/GenerateTab';
 import OutputTab from './components/tabs/OutputTab';
 import type { TabName } from './types';
@@ -11,7 +10,6 @@ const TABS: { id: TabName; label: string }[] = [
   { id: 'staff', label: 'Staff' },
   { id: 'availability', label: 'Availability' },
   { id: 'constraints', label: 'Constraints' },
-  { id: 'calendar', label: 'Shift Calendar' },
   { id: 'generate', label: 'Generate' },
   { id: 'output', label: 'Output' },
 ];
@@ -43,7 +41,6 @@ function AppInner() {
         {state.activeTab === 'staff' && <StaffTab />}
         {state.activeTab === 'availability' && <AvailabilityTab />}
         {state.activeTab === 'constraints' && <ConstraintsTab />}
-        {state.activeTab === 'calendar' && <ShiftCalendarTab />}
         {state.activeTab === 'generate' && <GenerateTab />}
         {state.activeTab === 'output' && <OutputTab />}
       </main>

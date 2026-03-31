@@ -49,7 +49,7 @@ export default function GenerateTab() {
         setSchedule(schedule);
 
         if (schedule.status === 'optimal') {
-          setTab('calendar');
+          setTab('output');
         }
       } catch (e) {
         setSchedule({
