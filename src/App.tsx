@@ -18,7 +18,7 @@ function AppInner() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Phone Coverage Scheduler</h1>
+        <h1>Schedule Builder</h1>
       </header>
 
       <nav className="tab-bar" role="tablist">

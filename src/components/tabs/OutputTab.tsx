@@ -185,7 +185,7 @@ export default function OutputTab() {
               </td></tr>
               {ALL_SHIFTS.map(s => (
                 <tr key={s}>
-                  <td><span className={`shift-chip shift-${s}`}>{SHIFT_LABELS[s]}</span> slots/day</td>
+                  <td><span className={`shift-chip shift-${s}`}>{SHIFT_LABELS[s]}</span> shifts/day</td>
                   <td><strong>{state.slotCounts[s]}</strong></td>
                 </tr>
               ))}

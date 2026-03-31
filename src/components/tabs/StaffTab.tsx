@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useApp } from '../../store/AppContext';
-import { exportConfig, importConfig } from '../../utils/exportImport';
-import type { Role } from '../../types';
-import { ALL_ROLES, ALL_SHIFTS, SHIFT_LABELS } from '../../types';
+import type { Role, ShiftType } from '../../types';
+import { ALL_ROLES, ALL_SHIFTS, SHIFT_LABELS, DEFAULT_TRAINED_BY_ROLE } from '../../types';
+import { v4 as uuidv4 } from 'uuid';
 
 export default function StaffTab() {
   const { state, addStaff, removeStaff, updateStaffName, updateStaffRole, toggleTrainedShift } = useApp();
@@ -132,45 +132,107 @@ function ConfigSection() {
   const { state, loadConfig } = useApp();
 
   function handleExport() {
-    exportConfig({
-      staff: state.staff,
-      overrides: state.overrides,
-      holidays: state.holidays,
-      slotCounts: state.slotCounts,
-      weeklyCaps: state.weeklyCaps,
-      targetMonth: state.targetMonth,
-    });
+    const headers = ['Name', 'Role', ...ALL_SHIFTS.map(s => SHIFT_LABELS[s])];
+    const rows = state.staff.map(s =>
+      [s.name, s.role, ...ALL_SHIFTS.map(sh => s.trainedShifts.includes(sh) ? '1' : '0')]
+    );
+    const csv = [headers, ...rows]
+      .map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'staff.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const config = await importConfig(file);
-      loadConfig(config);
+      const text = await file.text();
+      const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+      if (lines.length < 2) throw new Error('CSV has no data rows.');
+
+      const headers = parseCsvRow(lines[0]!).map(h => h.trim().toLowerCase());
+      const nameIdx = headers.indexOf('name');
+      const roleIdx = headers.indexOf('role');
+      if (nameIdx === -1 || roleIdx === -1) throw new Error('CSV must have Name and Role columns.');
+
+      const shiftColMap: { idx: number; shift: ShiftType }[] = ALL_SHIFTS.flatMap(sh => {
+        const idx = headers.indexOf(SHIFT_LABELS[sh].toLowerCase());
+        return idx !== -1 ? [{ idx, shift: sh }] : [];
+      });
+
+      const importedStaff = [];
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseCsvRow(lines[i]!);
+        const name = row[nameIdx]?.trim() ?? '';
+        const role = row[roleIdx]?.trim().toUpperCase() as Role;
+        if (!name || !ALL_ROLES.includes(role)) continue;
+        const trainedShifts: ShiftType[] = shiftColMap.length > 0
+          ? shiftColMap.filter(({ idx }) => isTruthy(row[idx])).map(({ shift }) => shift)
+          : [...DEFAULT_TRAINED_BY_ROLE[role]];
+        importedStaff.push({ id: uuidv4(), name, role, trainedShifts });
+      }
+
+      loadConfig({
+        staff: importedStaff,
+        overrides: state.overrides,
+        holidays: state.holidays,
+        slotCounts: state.slotCounts,
+        weeklyCaps: state.weeklyCaps,
+        targetMonth: state.targetMonth,
+      });
     } catch (err) {
-      alert(`Failed to import config: ${err instanceof Error ? err.message : String(err)}`);
+      alert(`Failed to import: ${err instanceof Error ? err.message : String(err)}`);
     }
     e.target.value = '';
   }
 
   return (
     <div className="section">
-      <div className="section-title">Config Export / Import</div>
+      <div className="section-title">Staff Export / Import</div>
       <div className="card">
         <div className="row">
-          <button className="btn btn-secondary" onClick={handleExport}>
-            Export Config (JSON)
+          <button className="btn btn-secondary" onClick={handleExport} disabled={state.staff.length === 0}>
+            Export Staff (CSV)
           </button>
           <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
-            Import Config (JSON)
-            <input type="file" accept=".json" style={{ display: 'none' }} onChange={handleImport} />
+            Import Staff (CSV)
+            <input type="file" accept=".csv" style={{ display: 'none' }} onChange={handleImport} />
           </label>
         </div>
         <p className="muted mt-8" style={{ fontSize: 12 }}>
-          Exports staff list, overrides, holidays, slot counts, and weekly caps.
+          CSV columns: Name, Role, and one column per shift type (1 = trained, 0 = not). Importing replaces the current staff list.
         </p>
       </div>
     </div>
   );
+}
+
+function isTruthy(v: string | undefined): boolean {
+  const s = (v ?? '').trim().toLowerCase();
+  return s === '1' || s === 'yes' || s === 'true' || s === 'x';
+}
+
+function parseCsvRow(line: string): string[] {
+  const fields: string[] = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]!;
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { field += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      fields.push(field); field = '';
+    } else {
+      field += ch;
+    }
+  }
+  fields.push(field);
+  return fields;
 }

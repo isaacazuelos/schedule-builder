@@ -8,7 +8,7 @@ export default function ConstraintsTab() {
   return (
     <div>
       <div className="section">
-        <div className="section-title">Slots per Day</div>
+        <div className="section-title">Shifts per Day</div>
         <div className="card">
           <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
             How many people are needed for each shift type each day.
@@ -17,7 +17,7 @@ export default function ConstraintsTab() {
             <thead>
               <tr>
                 <th>Shift</th>
-                <th>Slots per day</th>
+                <th>Shifts per day</th>
               </tr>
             </thead>
             <tbody>
