@@ -59,6 +59,12 @@ export default function AvailabilityTab() {
     toggleOverride(staffId, date, !currently);
   }
 
+  const ROLE_ORDER: Record<string, number> = { OP2: 0, SA1: 1, SA2: 2 };
+  const sortedStaff = [...state.staff].sort((a, b) => {
+    const roleCmp = (ROLE_ORDER[a.role] ?? 0) - (ROLE_ORDER[b.role] ?? 0);
+    return roleCmp !== 0 ? roleCmp : a.name.localeCompare(b.name);
+  });
+
   const workdayColumns = allDays.filter(d => !isWeekend(d));
 
   if (state.staff.length === 0) {
@@ -149,7 +155,7 @@ export default function AvailabilityTab() {
               </tr>
             </thead>
             <tbody>
-              {state.staff.map(s => (
+              {sortedStaff.map(s => (
                 <tr key={s.id}>
                   <td
                     style={{
