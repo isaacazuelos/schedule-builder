@@ -1,3 +1,4 @@
+import Papa from 'papaparse';
 import { toDateString } from './dateUtils';
 import type { StaffMember } from '../types';
 
@@ -12,27 +13,18 @@ export interface ParsedEvent {
  * Expected columns (case-insensitive): Subject, Start Date, End Date
  */
 export function parseSharedCalendarCsv(csvContent: string): ParsedEvent[] {
-  // Strip UTF-8 BOM if present (common in Windows Outlook CSV exports)
-  const content = csvContent.replace(/^\uFEFF/, '');
-  const lines = splitLines(content);
-  if (lines.length < 2) return [];
-
-  const headers = parseCsvRow(lines[0] ?? '').map(h => h.trim().toLowerCase());
-  const subjectIdx = findHeader(headers, ['subject']);
-  const startDateIdx = findHeader(headers, ['start date', 'startdate', 'start']);
-  const endDateIdx = findHeader(headers, ['end date', 'enddate', 'end']);
-
-  if (subjectIdx === -1 || startDateIdx === -1) return [];
+  const result = Papa.parse<Record<string, string>>(csvContent, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: (h) => h.trim().toLowerCase(),
+  });
 
   const events: ParsedEvent[] = [];
 
-  for (let i = 1; i < lines.length; i++) {
-    const row = parseCsvRow(lines[i] ?? '');
-    if (row.length === 0) continue;
-
-    const subject = row[subjectIdx]?.trim() ?? '';
-    const startRaw = row[startDateIdx]?.trim() ?? '';
-    const endRaw = endDateIdx !== -1 ? (row[endDateIdx]?.trim() ?? '') : '';
+  for (const row of result.data) {
+    const subject = row['subject']?.trim() ?? '';
+    const startRaw = row['start date']?.trim() ?? '';
+    const endRaw = row['end date']?.trim() ?? '';
 
     const startDate = parseOutlookDate(startRaw);
     if (!startDate) continue;
@@ -103,33 +95,25 @@ export function bestStaffMatch(subject: string, staff: StaffMember[]): string | 
  * staff member this CSV belongs to. This function just extracts unavailable dates.
  */
 export function parseOutlookCsv(csvContent: string): string[] {
-  const lines = splitLines(csvContent);
-  if (lines.length < 2) return [];
-
-  const headers = parseCsvRow(lines[0] ?? '').map(h => h.trim().toLowerCase());
-  const startDateIdx = findHeader(headers, ['start date', 'startdate', 'start']);
-  const endDateIdx = findHeader(headers, ['end date', 'enddate', 'end']);
-
-  if (startDateIdx === -1) return [];
+  const result = Papa.parse<Record<string, string>>(csvContent, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: (h) => h.trim().toLowerCase(),
+  });
 
   const unavailable = new Set<string>();
 
-  for (let i = 1; i < lines.length; i++) {
-    const row = parseCsvRow(lines[i] ?? '');
-    if (row.length === 0) continue;
-
-    const startRaw = row[startDateIdx]?.trim() ?? '';
-    const endRaw = endDateIdx !== -1 ? (row[endDateIdx]?.trim() ?? '') : '';
+  for (const row of result.data) {
+    const startRaw = row['start date']?.trim() ?? '';
+    const endRaw = row['end date']?.trim() ?? '';
 
     const startDate = parseOutlookDate(startRaw);
     if (!startDate) continue;
 
     const endDate = endRaw ? (parseOutlookDate(endRaw) ?? startDate) : startDate;
 
-    // Mark all calendar dates in [startDate, endDate] as unavailable
     const cur = new Date(startDate.getTime());
     const limit = new Date(endDate.getTime());
-    // Guard against absurdly long ranges
     let safety = 0;
     while (cur <= limit && safety < 400) {
       unavailable.add(toDateString(cur));
@@ -162,48 +146,4 @@ function parseOutlookDate(raw: string): Date | null {
   }
 
   return null;
-}
-
-/** Splits CSV content into non-empty lines, handling Windows line endings. */
-function splitLines(content: string): string[] {
-  return content
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .split('\n')
-    .filter(l => l.trim().length > 0);
-}
-
-/** Returns index of first matching header name, or -1. */
-function findHeader(headers: string[], candidates: string[]): number {
-  for (const c of candidates) {
-    const idx = headers.indexOf(c);
-    if (idx !== -1) return idx;
-  }
-  return -1;
-}
-
-/** Parses a single CSV row, handling quoted fields. */
-function parseCsvRow(line: string): string[] {
-  const fields: string[] = [];
-  let field = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i]!;
-    if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        field += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (ch === ',' && !inQuotes) {
-      fields.push(field);
-      field = '';
-    } else {
-      field += ch;
-    }
-  }
-  fields.push(field);
-  return fields;
 }
