@@ -61,9 +61,13 @@ export function parseSharedCalendarCsv(csvContent: string): ParsedEvent[] {
     // Determine which shift windows are blocked
     const isAllDay   = allDayRaw === 'true' || allDayRaw === 'yes' || allDayRaw === '1';
     const isMultiDay = dates.length > 1;
+    // Fallback: Outlook writes 0:00:00 for both times on all-day events even
+    // when the All day event column is blank or missing.
+    const isMidnightBothEnds =
+      parseTimeHours(startTimeR) === 0 && parseTimeHours(endTimeR) === 0;
 
     let blocked: DayBlock;
-    if (isAllDay || isMultiDay) {
+    if (isAllDay || isMultiDay || isMidnightBothEnds) {
       blocked = 'both';
     } else {
       const startH = parseTimeHours(startTimeR);
@@ -176,8 +180,8 @@ function parseOutlookDate(raw: string): Date | null {
     return isNaN(date.getTime()) ? null : date;
   }
 
-  // Try YYYY-MM-DD
-  const iso = dateOnly.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  // Try YYYY-MM-DD (allow 1- or 2-digit month and day, e.g. "2025-3-20")
+  const iso = dateOnly.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (iso) {
     const [, y, m, d] = iso.map(Number);
     const date = new Date(y!, m! - 1, d!);
