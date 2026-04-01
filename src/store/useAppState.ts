@@ -9,6 +9,7 @@ import type {
   Schedule,
   TabName,
   ExportedConfig,
+  PendingImportEvent,
 } from '../types';
 import {
   DEFAULT_SLOT_COUNTS,
@@ -37,7 +38,11 @@ type Action =
   | { type: 'SET_SCHEDULE'; schedule: Schedule }
   | { type: 'LOAD_CONFIG'; config: ExportedConfig }
   | { type: 'CLEAR_ALL_STAFF' }
-  | { type: 'CLEAR_AVAILABILITY' };
+  | { type: 'CLEAR_AVAILABILITY' }
+  | { type: 'SET_PENDING_IMPORT'; events: PendingImportEvent[] }
+  | { type: 'UPDATE_PENDING_ASSIGNMENT'; eventId: string; staffId: string | null; dismissed: boolean }
+  | { type: 'CONFIRM_PENDING_IMPORT' }
+  | { type: 'CANCEL_PENDING_IMPORT' };
 
 // ─── Initial state ────────────────────────────────────────────────────────────
 
@@ -88,6 +93,7 @@ const initialState: AppState = {
   targetMonth: nextYearMonth(),
   schedule: null,
   solveStatus: 'idle',
+  pendingImport: null,
 };
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -248,6 +254,38 @@ function reducer(state: AppState, action: Action): AppState {
     case 'CLEAR_AVAILABILITY':
       return { ...state, csvUnavailability: {}, overrides: [] };
 
+    case 'SET_PENDING_IMPORT':
+      return { ...state, pendingImport: { events: action.events } };
+
+    case 'UPDATE_PENDING_ASSIGNMENT': {
+      if (!state.pendingImport) return state;
+      return {
+        ...state,
+        pendingImport: {
+          events: state.pendingImport.events.map(e =>
+            e.id === action.eventId
+              ? { ...e, assignedStaffId: action.staffId, dismissed: action.dismissed }
+              : e
+          ),
+        },
+      };
+    }
+
+    case 'CONFIRM_PENDING_IMPORT': {
+      if (!state.pendingImport) return state;
+      const updated = { ...state.csvUnavailability };
+      for (const event of state.pendingImport.events) {
+        if (event.dismissed || !event.assignedStaffId) continue;
+        const existing = updated[event.assignedStaffId] ?? [];
+        const merged = Array.from(new Set([...existing, ...event.dates])).sort();
+        updated[event.assignedStaffId] = merged;
+      }
+      return { ...state, csvUnavailability: updated, pendingImport: null };
+    }
+
+    case 'CANCEL_PENDING_IMPORT':
+      return { ...state, pendingImport: null };
+
     default:
       return state;
   }
@@ -277,6 +315,10 @@ export function useAppState() {
   const loadConfig = useCallback((config: ExportedConfig) => dispatch({ type: 'LOAD_CONFIG', config }), []);
   const clearAllStaff = useCallback(() => dispatch({ type: 'CLEAR_ALL_STAFF' }), []);
   const clearAvailability = useCallback(() => dispatch({ type: 'CLEAR_AVAILABILITY' }), []);
+  const setPendingImport = useCallback((events: PendingImportEvent[]) => dispatch({ type: 'SET_PENDING_IMPORT', events }), []);
+  const updatePendingAssignment = useCallback((eventId: string, staffId: string | null, dismissed: boolean) => dispatch({ type: 'UPDATE_PENDING_ASSIGNMENT', eventId, staffId, dismissed }), []);
+  const confirmPendingImport = useCallback(() => dispatch({ type: 'CONFIRM_PENDING_IMPORT' }), []);
+  const cancelPendingImport = useCallback(() => dispatch({ type: 'CANCEL_PENDING_IMPORT' }), []);
 
   /** Compute effective availability: CSV + overrides combined */
   const isAvailable = useCallback(
@@ -310,6 +352,10 @@ export function useAppState() {
     loadConfig,
     clearAllStaff,
     clearAvailability,
+    setPendingImport,
+    updatePendingAssignment,
+    confirmPendingImport,
+    cancelPendingImport,
     isAvailable,
   };
 }

@@ -63,6 +63,19 @@ export const DEFAULT_WEEKLY_CAPS: WeeklyCap[] = [
 /** staffId -> set of dates where person is unavailable (from Outlook CSV import) */
 export type CsvUnavailability = Record<string, string[]>;
 
+/** A single event parsed from a shared calendar CSV, pending staff assignment. */
+export interface PendingImportEvent {
+  id: string;                    // uuid, stable React key
+  subject: string;               // raw event title from CSV
+  dates: string[];               // YYYY-MM-DD dates covered by this event
+  assignedStaffId: string | null; // null = unassigned
+  dismissed: boolean;
+}
+
+export interface PendingImport {
+  events: PendingImportEvent[];
+}
+
 /** Resulting schedule: staffId -> date -> shift assigned (or undefined) */
 export type AssignmentMap = Record<string, Record<string, ShiftType>>;
 
@@ -86,6 +99,7 @@ export interface AppState {
   targetMonth: string; // YYYY-MM
   schedule: Schedule | null;
   solveStatus: 'idle' | 'solving';
+  pendingImport: PendingImport | null;
 }
 
 /** The JSON shape exported/imported for config persistence. */
