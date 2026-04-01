@@ -86,6 +86,13 @@ export function nextMonth(yearMonth: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
+/** Returns the YYYY-MM-DD of the Sunday that starts the week containing the given date. */
+export function getSundayOfWeek(date: string): string {
+  const d = fromDateString(date);
+  d.setDate(d.getDate() - d.getDay()); // getDay() === 0 for Sunday
+  return toDateString(d);
+}
+
 /** Returns the YYYY-MM for the previous month. */
 export function prevMonth(yearMonth: string): string {
   const [y, m] = yearMonth.split('-').map(Number);
