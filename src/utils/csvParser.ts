@@ -12,7 +12,9 @@ export interface ParsedEvent {
  * Expected columns (case-insensitive): Subject, Start Date, End Date
  */
 export function parseSharedCalendarCsv(csvContent: string): ParsedEvent[] {
-  const lines = splitLines(csvContent);
+  // Strip UTF-8 BOM if present (common in Windows Outlook CSV exports)
+  const content = csvContent.replace(/^\uFEFF/, '');
+  const lines = splitLines(content);
   if (lines.length < 2) return [];
 
   const headers = parseCsvRow(lines[0] ?? '').map(h => h.trim().toLowerCase());
