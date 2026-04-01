@@ -1,7 +1,7 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useApp } from '../../store/AppContext';
-import { parseSharedCalendarCsv, bestStaffMatch } from '../../utils/csvParser';
+import { parseSharedCalendarCsv, bestStaffMatch, findMatchInSubject } from '../../utils/csvParser';
 import { getDaysInMonth, dowLabel, fromDateString } from '../../utils/dateUtils';
 
 export default function AvailabilityTab() {
@@ -16,6 +16,16 @@ export default function AvailabilityTab() {
     cancelPendingImport,
   } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  type SortCol = 'subject' | 'date' | 'blocked' | 'assignee';
+  const [sortCol, setSortCol] = useState<SortCol>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  function handleSortClick(col: SortCol) {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortCol(col); setSortDir('asc'); }
+  }
+  const sortArrow = (col: SortCol) => sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '';
 
   const allDays = getDaysInMonth(state.targetMonth);
 
@@ -105,91 +115,127 @@ export default function AvailabilityTab() {
         </div>
       </div>
 
-      {state.pendingImport && (
-        <div className="section">
-          <div className="section-title">Review Import</div>
-          <div className="card">
-            <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
-              Each event has been matched to the most similar staff name. Adjust assignments
-              as needed, then confirm to apply.
-            </p>
-            <div style={{ overflowX: 'auto' }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Event</th>
-                    <th>Dates</th>
-                    <th>Blocks</th>
-                    <th>Assign to</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {state.pendingImport.events.map(event => {
-                    const sorted = [...event.dates].sort();
-                    const first = sorted[0] ?? '';
-                    const last = sorted[sorted.length - 1] ?? '';
-                    const dateLabel =
-                      sorted.length === 1
-                        ? first
-                        : `${sorted.length} day(s): ${first} – ${last}`;
+      {state.pendingImport && (() => {
+        const staffById = Object.fromEntries(state.staff.map(s => [s.id, s]));
 
-                    return (
-                      <tr key={event.id} style={{ opacity: event.dismissed ? 0.4 : 1 }}>
-                        <td style={{ textDecoration: event.dismissed ? 'line-through' : undefined }}>
-                          {event.subject || <em className="muted">No subject</em>}
-                        </td>
-                        <td style={{ whiteSpace: 'nowrap', fontSize: 13 }}>{dateLabel}</td>
-                        <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>
-                          {event.blocked === 'am' ? 'AM only' : event.blocked === 'pm' ? 'PM only' : 'AM + PM'}
-                        </td>
-                        <td>
-                          <select
-                            value={event.assignedStaffId ?? ''}
-                            disabled={event.dismissed}
-                            style={{ pointerEvents: event.dismissed ? 'none' : undefined }}
-                            onChange={e => {
-                              const val = e.target.value;
-                              updatePendingAssignment(event.id, val === '' ? null : val, false);
-                            }}
-                          >
-                            <option value="">— Nobody (ignore) —</option>
-                            {sortedStaff.map(s => (
-                              <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <button
-                            className="btn btn-sm btn-secondary"
-                            onClick={() =>
-                              updatePendingAssignment(
-                                event.id,
-                                event.dismissed ? event.assignedStaffId : event.assignedStaffId,
-                                !event.dismissed
-                              )
-                            }
-                          >
-                            {event.dismissed ? 'Restore' : 'Dismiss'}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="row" style={{ marginTop: 12 }}>
-              <button className="btn btn-primary" onClick={confirmPendingImport}>
-                Confirm import
-              </button>
-              <button className="btn btn-secondary" onClick={cancelPendingImport}>
-                Cancel
-              </button>
+        const sortedEvents = [...state.pendingImport.events].sort((a, b) => {
+          let cmp = 0;
+          if (sortCol === 'subject') {
+            cmp = a.subject.toLowerCase().localeCompare(b.subject.toLowerCase());
+          } else if (sortCol === 'date') {
+            cmp = ([...a.dates].sort()[0] ?? '').localeCompare([...b.dates].sort()[0] ?? '');
+          } else if (sortCol === 'blocked') {
+            cmp = a.blocked.localeCompare(b.blocked);
+          } else {
+            const aName = (staffById[a.assignedStaffId ?? '']?.name ?? '').toLowerCase();
+            const bName = (staffById[b.assignedStaffId ?? '']?.name ?? '').toLowerCase();
+            cmp = aName.localeCompare(bName);
+          }
+          return sortDir === 'asc' ? cmp : -cmp;
+        });
+
+        function renderSubject(subject: string, assignedStaffId: string | null) {
+          if (!subject) return <em className="muted">No subject</em>;
+          const staffName = staffById[assignedStaffId ?? '']?.name;
+          if (!staffName) return <>{subject}</>;
+          const m = findMatchInSubject(subject, staffName);
+          if (!m) return <>{subject}</>;
+          return (
+            <>
+              {subject.slice(0, m.start)}
+              <mark style={{ background: '#fff3cd', padding: '0 1px', borderRadius: 2 }}>
+                {subject.slice(m.start, m.end)}
+              </mark>
+              {subject.slice(m.end)}
+            </>
+          );
+        }
+
+        const thStyle: React.CSSProperties = { cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' };
+
+        return (
+          <div className="section">
+            <div className="section-title">Review Import</div>
+            <div className="card">
+              <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
+                Each event has been matched to the most similar staff name. Adjust assignments
+                as needed, then confirm to apply.
+              </p>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th style={thStyle} onClick={() => handleSortClick('subject')}>Event{sortArrow('subject')}</th>
+                      <th style={thStyle} onClick={() => handleSortClick('date')}>Dates{sortArrow('date')}</th>
+                      <th style={thStyle} onClick={() => handleSortClick('blocked')}>Blocks{sortArrow('blocked')}</th>
+                      <th style={thStyle} onClick={() => handleSortClick('assignee')}>Assign to{sortArrow('assignee')}</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedEvents.map(event => {
+                      const sorted = [...event.dates].sort();
+                      const first = sorted[0] ?? '';
+                      const last = sorted[sorted.length - 1] ?? '';
+                      const dateLabel = sorted.length === 1 ? first : `${sorted.length} days: ${first} – ${last}`;
+
+                      return (
+                        <tr key={event.id} style={{ opacity: event.dismissed ? 0.4 : 1 }}>
+                          <td style={{ textDecoration: event.dismissed ? 'line-through' : undefined }}>
+                            {renderSubject(event.subject, event.dismissed ? null : event.assignedStaffId)}
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap', fontSize: 13 }}>{dateLabel}</td>
+                          <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>
+                            {event.blocked === 'am' ? 'AM only' : event.blocked === 'pm' ? 'PM only' : 'AM + PM'}
+                          </td>
+                          <td>
+                            <select
+                              value={event.assignedStaffId ?? ''}
+                              disabled={event.dismissed}
+                              onChange={e => {
+                                const val = e.target.value;
+                                updatePendingAssignment(event.id, val === '' ? null : val, false);
+                              }}
+                            >
+                              <option value="">— Nobody (ignore) —</option>
+                              {sortedStaff.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td>
+                            <button
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => updatePendingAssignment(event.id, event.assignedStaffId, !event.dismissed)}
+                            >
+                              {event.dismissed ? 'Restore' : 'Dismiss'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="row" style={{ marginTop: 12 }}>
+                <button className="btn btn-primary" onClick={confirmPendingImport}>
+                  Confirm import
+                </button>
+                <button className="btn btn-secondary" onClick={cancelPendingImport}>
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-danger btn-sm"
+                  style={{ marginLeft: 'auto' }}
+                  onClick={() => setPendingImport(state.pendingImport!.events.map(e => ({ ...e, dismissed: true })))}
+                >
+                  Dismiss all
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div className="section">
         <div className="section-title">Holidays</div>

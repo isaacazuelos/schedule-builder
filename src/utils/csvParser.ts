@@ -88,6 +88,33 @@ export function parseSharedCalendarCsv(csvContent: string): ParsedEvent[] {
   return events;
 }
 
+/**
+ * Returns the start/end indices (into `subject`) of the longest common
+ * substring between `subject` and `staffName` (case-insensitive), or null
+ * if the match is shorter than 3 characters.  Used for highlight rendering.
+ */
+export function findMatchInSubject(
+  subject: string,
+  staffName: string,
+): { start: number; end: number } | null {
+  const a = subject.toLowerCase();
+  const b = staffName.toLowerCase();
+  let bestLen = 2; // must exceed threshold to count
+  let bestEndA = -1;
+  const dp: number[] = new Array(b.length + 1).fill(0);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = 0;
+    for (let j = 1; j <= b.length; j++) {
+      const temp = dp[j]!;
+      dp[j] = a[i - 1] === b[j - 1] ? prev + 1 : 0;
+      if (dp[j]! > bestLen) { bestLen = dp[j]!; bestEndA = i; }
+      prev = temp;
+    }
+  }
+  if (bestEndA === -1) return null;
+  return { start: bestEndA - bestLen, end: bestEndA };
+}
+
 /** Returns the length of the longest common substring of a and b (both already lowercased). */
 function longestCommonSubstring(a: string, b: string): number {
   let best = 0;
