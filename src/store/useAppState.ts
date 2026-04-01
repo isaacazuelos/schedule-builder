@@ -5,6 +5,7 @@ import type {
   StaffMember,
   Role,
   ShiftType,
+  DayBlock,
   DateOverride,
   Schedule,
   TabName,
@@ -26,7 +27,6 @@ type Action =
   | { type: 'UPDATE_STAFF_NAME'; id: string; name: string }
   | { type: 'UPDATE_STAFF_ROLE'; id: string; role: Role }
   | { type: 'TOGGLE_TRAINED_SHIFT'; id: string; shift: ShiftType }
-  | { type: 'SET_CSV_UNAVAILABILITY'; staffId: string; dates: string[] }
   | { type: 'TOGGLE_OVERRIDE'; staffId: string; date: string; available: boolean }
   | { type: 'REMOVE_OVERRIDE'; staffId: string; date: string }
   | { type: 'TOGGLE_HOLIDAY'; date: string }
@@ -96,6 +96,15 @@ const initialState: AppState = {
   pendingImport: null,
 };
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function mergeBlock(existing: DayBlock | undefined, incoming: DayBlock): DayBlock {
+  if (!existing) return incoming;
+  if (existing === 'both' || incoming === 'both') return 'both';
+  if (existing === incoming) return existing;
+  return 'both'; // 'am' + 'pm' → 'both'
+}
+
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
 function reducer(state: AppState, action: Action): AppState {
@@ -153,12 +162,6 @@ function reducer(state: AppState, action: Action): AppState {
               : [...s.trainedShifts, action.shift],
           };
         }),
-      };
-
-    case 'SET_CSV_UNAVAILABILITY':
-      return {
-        ...state,
-        csvUnavailability: { ...state.csvUnavailability, [action.staffId]: action.dates },
       };
 
     case 'TOGGLE_OVERRIDE': {
@@ -276,9 +279,11 @@ function reducer(state: AppState, action: Action): AppState {
       const updated = { ...state.csvUnavailability };
       for (const event of state.pendingImport.events) {
         if (event.dismissed || !event.assignedStaffId) continue;
-        const existing = updated[event.assignedStaffId] ?? [];
-        const merged = Array.from(new Set([...existing, ...event.dates])).sort();
-        updated[event.assignedStaffId] = merged;
+        const dateMap = { ...(updated[event.assignedStaffId] ?? {}) };
+        for (const date of event.dates) {
+          dateMap[date] = mergeBlock(dateMap[date], event.blocked);
+        }
+        updated[event.assignedStaffId] = dateMap;
       }
       return { ...state, csvUnavailability: updated, pendingImport: null };
     }
@@ -302,7 +307,6 @@ export function useAppState() {
   const updateStaffName = useCallback((id: string, name: string) => dispatch({ type: 'UPDATE_STAFF_NAME', id, name }), []);
   const updateStaffRole = useCallback((id: string, role: Role) => dispatch({ type: 'UPDATE_STAFF_ROLE', id, role }), []);
   const toggleTrainedShift = useCallback((id: string, shift: ShiftType) => dispatch({ type: 'TOGGLE_TRAINED_SHIFT', id, shift }), []);
-  const setCsvUnavailability = useCallback((staffId: string, dates: string[]) => dispatch({ type: 'SET_CSV_UNAVAILABILITY', staffId, dates }), []);
   const toggleOverride = useCallback((staffId: string, date: string, available: boolean) => dispatch({ type: 'TOGGLE_OVERRIDE', staffId, date, available }), []);
   const removeOverride = useCallback((staffId: string, date: string) => dispatch({ type: 'REMOVE_OVERRIDE', staffId, date }), []);
   const toggleHoliday = useCallback((date: string) => dispatch({ type: 'TOGGLE_HOLIDAY', date }), []);
@@ -320,13 +324,12 @@ export function useAppState() {
   const confirmPendingImport = useCallback(() => dispatch({ type: 'CONFIRM_PENDING_IMPORT' }), []);
   const cancelPendingImport = useCallback(() => dispatch({ type: 'CANCEL_PENDING_IMPORT' }), []);
 
-  /** Compute effective availability: CSV + overrides combined */
+  /** True only if the person has no CSV block and no unavailable override on this date. */
   const isAvailable = useCallback(
     (staffId: string, date: string): boolean => {
       const override = state.overrides.find(o => o.staffId === staffId && o.date === date);
       if (override !== undefined) return override.available;
-      const csvDates = state.csvUnavailability[staffId] ?? [];
-      return !csvDates.includes(date);
+      return !state.csvUnavailability[staffId]?.[date];
     },
     [state.overrides, state.csvUnavailability]
   );
@@ -339,7 +342,6 @@ export function useAppState() {
     updateStaffName,
     updateStaffRole,
     toggleTrainedShift,
-    setCsvUnavailability,
     toggleOverride,
     removeOverride,
     toggleHoliday,

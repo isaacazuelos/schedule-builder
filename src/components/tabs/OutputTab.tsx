@@ -3,7 +3,7 @@ import { getDaysInMonth, getWorkdays, fromDateString, formatMonth } from '../../
 import { exportScheduleHtml } from '../../utils/exportImport';
 import { solveSchedule } from '../../utils/ilpSolver';
 import { ALL_SHIFTS, SHIFT_LABELS } from '../../types';
-import type { ShiftType } from '../../types';
+import type { ShiftType, DayBlock } from '../../types';
 
 const DOW_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
@@ -22,15 +22,17 @@ export default function OutputTab() {
     setSolveStatus('solving');
     setTimeout(() => {
       try {
-        const unavailMap = new Map<string, Set<string>>();
+        const unavailMap = new Map<string, Map<string, DayBlock>>();
         for (const s of staff) {
-          const unavail = new Set(state.csvUnavailability[s.id] ?? []);
+          const blockMap = new Map<string, DayBlock>(
+            Object.entries(state.csvUnavailability[s.id] ?? {})
+          );
           for (const o of state.overrides) {
             if (o.staffId !== s.id) continue;
-            if (o.available) unavail.delete(o.date);
-            else unavail.add(o.date);
+            if (o.available) blockMap.delete(o.date);
+            else blockMap.set(o.date, 'both');
           }
-          unavailMap.set(s.id, unavail);
+          unavailMap.set(s.id, blockMap);
         }
         setSchedule(solveSchedule(staff, workdays, state.slotCounts, state.weeklyCaps, unavailMap));
       } catch (e) {

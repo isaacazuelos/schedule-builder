@@ -17,6 +17,7 @@
 import type {
   StaffMember,
   ShiftType,
+  DayBlock,
   SlotCounts,
   WeeklyCap,
   AssignmentMap,
@@ -30,8 +31,8 @@ export function solveSchedule(
   workdays: string[],
   slotCounts: SlotCounts,
   weeklyCaps: WeeklyCap[],
-  /** staffId -> set of unavailable dates */
-  unavailableDates: Map<string, Set<string>>
+  /** staffId -> date -> which shift windows are blocked */
+  unavailableDates: Map<string, Map<string, DayBlock>>
 ): Schedule {
   const month = workdays[0]?.substring(0, 7) ?? '';
 
@@ -80,7 +81,10 @@ export function solveSchedule(
       for (let slot = 0; slot < slots; slot++) {
         const candidates = staff.filter(s => {
           if (!s.trainedShifts.includes(shift)) return false;
-          if (unavailableDates.get(s.id)?.has(d)) return false;
+          const block = unavailableDates.get(s.id)?.get(d);
+          if (block === 'both') return false;
+          if (block === 'am' && shift.endsWith('-am')) return false;
+          if (block === 'pm' && shift.endsWith('-pm')) return false;
           if (assignedOnDay[d]!.has(s.id)) return false;
           if (chosenForSlot.has(s.id)) return false;
 

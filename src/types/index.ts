@@ -60,14 +60,18 @@ export const DEFAULT_WEEKLY_CAPS: WeeklyCap[] = [
   { role: 'SA2', maxShiftsPerWeek: 5, maxPerType: {} },
 ];
 
-/** staffId -> set of dates where person is unavailable (from Outlook CSV import) */
-export type CsvUnavailability = Record<string, string[]>;
+/** Which shift windows a calendar event blocks. */
+export type DayBlock = 'am' | 'pm' | 'both';
+
+/** staffId -> date -> which shift windows are blocked (from CSV import) */
+export type CsvUnavailability = Record<string, Record<string, DayBlock>>;
 
 /** A single event parsed from a shared calendar CSV, pending staff assignment. */
 export interface PendingImportEvent {
   id: string;                    // uuid, stable React key
   subject: string;               // raw event title from CSV
   dates: string[];               // YYYY-MM-DD dates covered by this event
+  blocked: DayBlock;             // which shift windows this event blocks
   assignedStaffId: string | null; // null = unassigned
   dismissed: boolean;
 }

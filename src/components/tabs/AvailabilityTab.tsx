@@ -19,11 +19,21 @@ export default function AvailabilityTab() {
 
   const allDays = getDaysInMonth(state.targetMonth);
 
+  // True if no CSV block and no unavailable override — used for click toggling
   function isAvailable(staffId: string, date: string): boolean {
     const override = state.overrides.find(o => o.staffId === staffId && o.date === date);
     if (override !== undefined) return override.available;
-    const csvDates = state.csvUnavailability[staffId] ?? [];
-    return !csvDates.includes(date);
+    return !state.csvUnavailability[staffId]?.[date];
+  }
+
+  // Visual state for the grid cell
+  function getDayBlock(staffId: string, date: string): 'available' | 'am-blocked' | 'pm-blocked' | 'unavailable' {
+    const override = state.overrides.find(o => o.staffId === staffId && o.date === date);
+    if (override !== undefined) return override.available ? 'available' : 'unavailable';
+    const block = state.csvUnavailability[staffId]?.[date];
+    if (!block) return 'available';
+    if (block === 'both') return 'unavailable';
+    return block === 'am' ? 'am-blocked' : 'pm-blocked';
   }
 
   function isWeekend(date: string): boolean {
@@ -44,6 +54,7 @@ export default function AvailabilityTab() {
       id: uuidv4(),
       subject: event.subject,
       dates: event.dates,
+      blocked: event.blocked,
       assignedStaffId: bestStaffMatch(event.subject, state.staff),
       dismissed: false,
     }));
@@ -108,6 +119,7 @@ export default function AvailabilityTab() {
                   <tr>
                     <th>Event</th>
                     <th>Dates</th>
+                    <th>Blocks</th>
                     <th>Assign to</th>
                     <th></th>
                   </tr>
@@ -128,6 +140,9 @@ export default function AvailabilityTab() {
                           {event.subject || <em className="muted">No subject</em>}
                         </td>
                         <td style={{ whiteSpace: 'nowrap', fontSize: 13 }}>{dateLabel}</td>
+                        <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>
+                          {event.blocked === 'am' ? 'AM only' : event.blocked === 'pm' ? 'PM only' : 'AM + PM'}
+                        </td>
                         <td>
                           <select
                             value={event.assignedStaffId ?? ''}
@@ -257,16 +272,33 @@ export default function AvailabilityTab() {
                   </td>
                   {workdayColumns.map(d => {
                     const holiday = isHoliday(d);
-                    const avail = !holiday && isAvailable(s.id, d);
+                    const dayState = holiday ? 'unavailable' : getDayBlock(s.id, d);
                     const hasOverride = state.overrides.some(o => o.staffId === s.id && o.date === d);
-                    let bg = avail ? '#d1e7dd' : '#f8d7da';
-                    if (holiday) bg = '#e9ecef';
+
+                    const BG: Record<string, string> = {
+                      available:   '#d1e7dd',
+                      'am-blocked': '#fff3cd',
+                      'pm-blocked': '#fff3cd',
+                      unavailable: holiday ? '#e9ecef' : '#f8d7da',
+                    };
+                    const LABEL: Record<string, string> = {
+                      available:   '✓',
+                      'am-blocked': 'PM',
+                      'pm-blocked': 'AM',
+                      unavailable: holiday ? '—' : '✗',
+                    };
+                    const TITLE: Record<string, string> = {
+                      available:   'Available',
+                      'am-blocked': 'AM blocked (PM available)',
+                      'pm-blocked': 'PM blocked (AM available)',
+                      unavailable: holiday ? 'Holiday' : 'Unavailable',
+                    };
 
                     return (
                       <td
                         key={d}
                         style={{
-                          background: bg,
+                          background: BG[dayState],
                           textAlign: 'center',
                           cursor: holiday ? 'default' : 'pointer',
                           padding: '4px 2px',
@@ -274,14 +306,10 @@ export default function AvailabilityTab() {
                           outline: hasOverride ? '2px solid #0d6efd' : undefined,
                           userSelect: 'none',
                         }}
-                        title={
-                          holiday
-                            ? 'Holiday'
-                            : `${s.name} — ${d} — ${avail ? 'Available' : 'Unavailable'}${hasOverride ? ' (override)' : ''}`
-                        }
+                        title={`${s.name} — ${d} — ${TITLE[dayState]}${hasOverride ? ' (override)' : ''}`}
                         onClick={() => handleCellClick(s.id, d)}
                       >
-                        {holiday ? '—' : avail ? '✓' : '✗'}
+                        {LABEL[dayState]}
                       </td>
                     );
                   })}
