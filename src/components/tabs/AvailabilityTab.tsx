@@ -321,7 +321,7 @@ export default function AvailabilityTab() {
                     style={{
                       position: 'sticky',
                       left: 0,
-                      background: 'var(--color-bg)',
+                      background: 'var(--row-bg, var(--color-bg))',
                       zIndex: 1,
                       fontWeight: 600,
                       whiteSpace: 'nowrap',
