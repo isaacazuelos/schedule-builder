@@ -52,39 +52,9 @@ function nextYearMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-const EXAMPLE_STAFF: StaffMember[] = (
-  [
-    ['Michael Scott',    'SA1'],
-    ['Dwight Schrute',   'SA2'],
-    ['Jim Halpert',      'SA1'],
-    ['Pam Beesly',       'SA2'],
-    ['Ryan Howard',      'OP2'],
-    ['Andy Bernard',     'SA1'],
-    ['Angela Martin',    'OP2'],
-    ['Kevin Malone',     'OP2'],
-    ['Oscar Martinez',   'SA2'],
-    ['Kelly Kapoor',     'OP2'],
-    ['Toby Flenderson',  'SA1'],
-    ['Meredith Palmer',  'OP2'],
-    ['Creed Bratton',    'OP2'],
-    ['Stanley Hudson',   'SA2'],
-    ['Phyllis Vance',    'SA1'],
-    ['Darryl Philbin',   'SA2'],
-    ['Erin Hannon',      'SA1'],
-    ['Jan Levinson',     'SA2'],
-    ['Karen Filippelli', 'OP2'],
-    ['Roy Anderson',     'OP2'],
-  ] as [string, Role][]
-).map(([name, role], i) => ({
-  id: `example-${i}`,
-  name,
-  role,
-  trainedShifts: [...DEFAULT_TRAINED_BY_ROLE[role]],
-}));
-
 const initialState: AppState = {
   activeTab: 'output',
-  staff: EXAMPLE_STAFF,
+  staff: [],
   csvUnavailability: {},
   overrides: [],
   holidays: [],
