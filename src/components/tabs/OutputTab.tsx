@@ -24,9 +24,13 @@ export default function OutputTab() {
       try {
         const unavailMap = new Map<string, { am: Set<string>; pm: Set<string> }>();
         for (const s of staff) {
-          const csvDates = state.csvUnavailability[s.id] ?? [];
-          const am = new Set<string>(csvDates);
-          const pm = new Set<string>(csvDates);
+          const csvBlocks = state.csvUnavailability[s.id] ?? {};
+          const am = new Set<string>();
+          const pm = new Set<string>();
+          for (const [date, block] of Object.entries(csvBlocks)) {
+            if (block === 'am' || block === 'both') am.add(date);
+            if (block === 'pm' || block === 'both') pm.add(date);
+          }
           for (const o of state.overrides) {
             if (o.staffId !== s.id) continue;
             const set = o.period === 'am' ? am : pm;
