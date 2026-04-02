@@ -339,8 +339,8 @@ export default function AvailabilityTab() {
                       const hasOverride = state.overrides.some(
                         o => o.staffId === s.id && o.date === d && o.period === period
                       );
-                      let bg = avail ? '#d1e7dd' : '#f8d7da';
-                      if (holiday) bg = '#e9ecef';
+                      let bg = avail ? 'var(--cell-avail)' : 'var(--cell-unavail)';
+                      if (holiday) bg = 'var(--cell-holiday)';
 
                       return (
                         <td
