@@ -273,10 +273,11 @@ export default function AvailabilityTab() {
                 >
                   Staff
                 </th>
-                {workdayColumns.map(d => (
+                {workdayColumns.map((d, dateIdx) => (
                   <th
                     key={d}
                     colSpan={2}
+                    className={dateIdx % 2 === 1 ? 'col-even' : undefined}
                     style={{
                       textAlign: 'center',
                       fontSize: 11,
@@ -293,10 +294,11 @@ export default function AvailabilityTab() {
                 ))}
               </tr>
               <tr>
-                {workdayColumns.map(d =>
+                {workdayColumns.map((d, dateIdx) =>
                   (['am', 'pm'] as const).map(period => (
                     <th
                       key={`${d}-${period}`}
+                      className={dateIdx % 2 === 1 ? 'col-even' : undefined}
                       style={{
                         textAlign: 'center',
                         fontSize: 10,
@@ -332,7 +334,7 @@ export default function AvailabilityTab() {
                       {s.role}
                     </span>
                   </td>
-                  {workdayColumns.map(d => {
+                  {workdayColumns.map((d, dateIdx) => {
                     const holiday = isHoliday(d);
                     return (['am', 'pm'] as const).map(period => {
                       const avail = !holiday && isAvailable(s.id, d, period);
@@ -345,6 +347,7 @@ export default function AvailabilityTab() {
                       return (
                         <td
                           key={`${d}-${period}`}
+                          className={dateIdx % 2 === 1 ? 'col-even' : undefined}
                           style={{
                             background: bg,
                             textAlign: 'center',

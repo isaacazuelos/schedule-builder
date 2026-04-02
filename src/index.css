@@ -189,6 +189,7 @@ label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
   --cell-holiday: #dde1e6;
 }
 .data-table tbody tr:hover { background: #fff5f5; --row-bg: #fff5f5; }
+.col-even { filter: brightness(0.94); }
 .data-table td:last-child { white-space: nowrap; }
 
 /* ─── Badges / chips ────────────────────────────────────────────────────────── */
