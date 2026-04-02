@@ -1,11 +1,11 @@
 import { useApp } from '../../store/AppContext';
-import { getDaysInMonth, getWorkdays, fromDateString, formatMonth } from '../../utils/dateUtils';
+import { getDaysInMonth, getWorkdays, fromDateString, formatMonth, toDateString } from '../../utils/dateUtils';
 import { exportScheduleHtml } from '../../utils/exportImport';
 import { solveSchedule } from '../../utils/ilpSolver';
-import { ALL_SHIFTS, SHIFT_LABELS } from '../../types';
-import type { ShiftType, DayBlock } from '../../types';
+import { ALL_SHIFTS, DAILY_SHIFTS, WEEKLY_SHIFTS, SHIFT_LABELS } from '../../types';
+import type { ShiftType } from '../../types';
 
-const DOW_HEADERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const DOW_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function OutputTab() {
   const { state, setTargetMonth, setSolveStatus, setSchedule } = useApp();
@@ -22,17 +22,22 @@ export default function OutputTab() {
     setSolveStatus('solving');
     setTimeout(() => {
       try {
-        const unavailMap = new Map<string, Map<string, DayBlock>>();
+        const unavailMap = new Map<string, { am: Set<string>; pm: Set<string> }>();
         for (const s of staff) {
-          const blockMap = new Map<string, DayBlock>(
-            Object.entries(state.csvUnavailability[s.id] ?? {})
-          );
+          const csvBlocks = state.csvUnavailability[s.id] ?? {};
+          const am = new Set<string>();
+          const pm = new Set<string>();
+          for (const [date, block] of Object.entries(csvBlocks)) {
+            if (block === 'am' || block === 'both') am.add(date);
+            if (block === 'pm' || block === 'both') pm.add(date);
+          }
           for (const o of state.overrides) {
             if (o.staffId !== s.id) continue;
-            if (o.available) blockMap.delete(o.date);
-            else blockMap.set(o.date, 'both');
+            const set = o.period === 'am' ? am : pm;
+            if (o.available) set.delete(o.date);
+            else set.add(o.date);
           }
-          unavailMap.set(s.id, blockMap);
+          unavailMap.set(s.id, { am, pm });
         }
         setSchedule(solveSchedule(staff, workdays, state.slotCounts, state.weeklyCaps, unavailMap));
       } catch (e) {
@@ -49,6 +54,7 @@ export default function OutputTab() {
   // ── Calendar grid data ──────────────────────────────────────────────────────
   const calMonth = hasSchedule ? schedule!.month : targetMonth;
   const allDays = getDaysInMonth(calMonth);
+  const monthDaySet = new Set(allDays);
   const weeks = buildWeekRows(allDays);
 
   const dayAssignments = new Map<string, { name: string; shift: ShiftType }[]>();
@@ -92,19 +98,50 @@ export default function OutputTab() {
             {DOW_HEADERS.map(d => <div key={d} className="cal-header">{d}</div>)}
             {weeks.map((week, wi) =>
               week.map((day, di) => {
-                if (!day) return <div key={`${wi}-${di}`} style={{ background: '#f8f9fa', borderRadius: 4 }} />;
-                const isHoliday = holidays.includes(day);
-                const assignments = dayAssignments.get(day) ?? [];
+                const inMonth = monthDaySet.has(day);
+                const dow = fromDateString(day).getDay();
+                const isSunday   = dow === 0;
+                const isSaturday = dow === 6;
+                const isHolidayDay = inMonth && holidays.includes(day);
+                const isWorkday = inMonth && !isSunday && !isSaturday && !isHolidayDay;
+
+                const qpList = dayAssignments.get(day)?.filter(a => WEEKLY_SHIFTS.includes(a.shift)) ?? [];
+                const regularList = dayAssignments.get(day)?.filter(a => DAILY_SHIFTS.includes(a.shift)) ?? [];
+
+                let bg = inMonth ? 'var(--color-surface)' : '#f0f0f0';
+                if (isSunday)        bg = inMonth ? '#eef4ff' : '#f5f5ff';
+                else if (isSaturday) bg = inMonth ? '#f8f9fa' : '#f0f0f0';
+                else if (isHolidayDay) bg = '#efefef';
+
                 return (
-                  <div key={day} className={`cal-day${isHoliday ? ' cal-day--holiday' : ''}`}>
-                    <div className="cal-day-date">
+                  <div
+                    key={`${wi}-${di}`}
+                    className={`cal-day${isHolidayDay ? ' cal-day--holiday' : ''}`}
+                    style={{ background: bg }}
+                  >
+                    <div
+                      className="cal-day-date"
+                      style={{ color: inMonth ? undefined : 'var(--color-text-muted)' }}
+                    >
                       {day.slice(8)}
-                      {isHoliday && <span className="muted" style={{ fontSize: 10, marginLeft: 4 }}>Holiday</span>}
+                      {isHolidayDay && <span className="muted" style={{ fontSize: 10, marginLeft: 4 }}>Holiday</span>}
                     </div>
-                    {!isHoliday && hasSchedule && assignments.length === 0 && (
+
+                    {/* QP assignments shown only in Sunday cell */}
+                    {isSunday && qpList.sort((a, b) => a.shift.localeCompare(b.shift)).map((a, i) => (
+                      <div key={i} className="cal-assignment">
+                        <span className={`shift-chip shift-${a.shift}`} style={{ fontSize: 10 }}>
+                          {SHIFT_LABELS[a.shift]}
+                        </span>
+                        <span style={{ fontSize: 11 }}>{a.name}</span>
+                      </div>
+                    ))}
+
+                    {/* Regular daily assignments on workdays */}
+                    {isWorkday && hasSchedule && regularList.length === 0 && (
                       <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>No assignments</div>
                     )}
-                    {assignments.sort((a, b) => a.shift.localeCompare(b.shift)).map((a, i) => (
+                    {isWorkday && regularList.sort((a, b) => a.shift.localeCompare(b.shift)).map((a, i) => (
                       <div key={i} className="cal-assignment">
                         <span className={`shift-chip shift-${a.shift}`} style={{ fontSize: 10 }}>
                           {SHIFT_LABELS[a.shift]}
@@ -172,7 +209,10 @@ export default function OutputTab() {
               </td></tr>
               {ALL_SHIFTS.map(s => (
                 <tr key={s}>
-                  <td><span className={`shift-chip shift-${s}`}>{SHIFT_LABELS[s]}</span> shifts/day</td>
+                  <td>
+                    <span className={`shift-chip shift-${s}`}>{SHIFT_LABELS[s]}</span>
+                    {' '}shifts/{WEEKLY_SHIFTS.includes(s) ? 'week' : 'day'}
+                  </td>
                   <td><strong>{state.slotCounts[s]}</strong></td>
                 </tr>
               ))}
@@ -227,10 +267,12 @@ export default function OutputTab() {
 // ─── HTML generation ─────────────────────────────────────────────────────────
 
 const SHIFT_COLORS: Record<ShiftType, string> = {
-  'phones-am': '#fff3b0',
-  'phones-pm': '#ffe066',
+  'phones-am':   '#fff3b0',
+  'phones-pm':   '#ffe066',
   'inperson-am': '#ffd0d5',
   'inperson-pm': '#ffaab3',
+  'qp-am':       '#c8ead8',
+  'qp-pm':       '#8ecfb0',
 };
 
 function buildOutputHtml(
@@ -241,6 +283,7 @@ function buildOutputHtml(
 ): string {
   const allDays = getDaysInMonth(month);
   const holidaySet = new Set(holidays);
+  const monthDaySet = new Set(allDays);
 
   const dayMap = new Map<string, { name: string; shift: ShiftType }[]>();
   for (const [staffId, dateMap] of Object.entries(assignments)) {
@@ -253,33 +296,54 @@ function buildOutputHtml(
   }
 
   const weeks = buildWeekRows(allDays);
-  const cellStyle = 'border:1px solid #ccc;padding:8px;vertical-align:top;min-width:120px;';
-  const headerCellStyle = `${cellStyle}background:#f0f0f0;font-weight:bold;text-align:center;`;
-  const holidayCellStyle = `${cellStyle}background:#e9ecef;color:#888;`;
-  const emptyCellStyle = `${cellStyle}background:#fafafa;`;
+  const cellStyle    = 'border:1px solid #ccc;padding:6px;vertical-align:top;min-width:90px;';
+  const headerStyle  = `${cellStyle}background:#f0f0f0;font-weight:bold;text-align:center;`;
+  const holidayStyle = `${cellStyle}background:#e9ecef;color:#888;`;
+  const weekendStyle = `${cellStyle}background:#f8f9fa;`;
+  const outsideStyle = `${cellStyle}background:#f0f0f0;color:#bbb;`;
+  const sundayStyle  = `${cellStyle}background:#eef4ff;`;
 
   let table = `<table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;width:100%;">`;
   table += `<caption style="font-size:16px;font-weight:bold;padding:8px 0;text-align:left;">${formatMonth(month)}</caption>`;
   table += '<thead><tr>';
-  for (const dow of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])
-    table += `<th style="${headerCellStyle}">${dow}</th>`;
+  for (const dow of ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'])
+    table += `<th style="${headerStyle}">${dow}</th>`;
   table += '</tr></thead><tbody>';
 
   for (const week of weeks) {
     table += '<tr>';
     for (const day of week) {
-      if (!day) { table += `<td style="${emptyCellStyle}"></td>`; continue; }
-      if (holidaySet.has(day)) {
-        table += `<td style="${holidayCellStyle}"><strong>${day.slice(8)}</strong><br/><em>Holiday</em></td>`;
+      const inMonth = monthDaySet.has(day);
+      const dow = fromDateString(day).getDay();
+      const isSunday = dow === 0;
+      const isSat = dow === 6;
+      const isHoliday = inMonth && holidaySet.has(day);
+      const isWorkday = inMonth && !isSunday && !isSat && !isHoliday;
+
+      const qpList = dayMap.get(day)?.filter(a => WEEKLY_SHIFTS.includes(a.shift)) ?? [];
+      const regularList = dayMap.get(day)?.filter(a => DAILY_SHIFTS.includes(a.shift)) ?? [];
+
+      if (!inMonth) {
+        table += `<td style="${outsideStyle}"><div style="font-weight:bold;">${day.slice(8)}</div></td>`;
         continue;
       }
-      const sorted = [...(dayMap.get(day) ?? [])].sort((a, b) => a.shift.localeCompare(b.shift));
-      const dowAbbr = fromDateString(day).toLocaleDateString('en-CA', { weekday: 'short' });
-      table += `<td style="${cellStyle}"><div style="font-weight:bold;margin-bottom:4px;">${day.slice(8)} <span style="font-weight:normal;color:#666;font-size:11px;">${dowAbbr}</span></div>`;
-      if (sorted.length === 0) {
+      if (isHoliday) {
+        table += `<td style="${holidayStyle}"><strong>${day.slice(8)}</strong><br/><em>Holiday</em></td>`;
+        continue;
+      }
+      if (isSat) {
+        table += `<td style="${weekendStyle}"><div style="font-weight:bold;">${day.slice(8)}</div></td>`;
+        continue;
+      }
+
+      const style = isSunday ? sundayStyle : cellStyle;
+      table += `<td style="${style}"><div style="font-weight:bold;margin-bottom:4px;">${day.slice(8)}</div>`;
+
+      const items = isSunday ? qpList : (isWorkday ? regularList.sort((a, b) => a.shift.localeCompare(b.shift)) : []);
+      if (items.length === 0 && (isSunday || isWorkday)) {
         table += `<span style="color:#aaa;font-size:11px;">—</span>`;
       } else {
-        for (const a of sorted) {
+        for (const a of items) {
           const bg = SHIFT_COLORS[a.shift] ?? '#eee';
           table += `<div style="margin-bottom:3px;"><span style="background:${bg};padding:1px 5px;border-radius:3px;font-size:11px;display:inline-block;">${SHIFT_LABELS[a.shift]}</span> ${escapeHtml(a.name)}</div>`;
         }
@@ -296,22 +360,22 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function buildWeekRows(allDays: string[]): (string | null)[][] {
+/**
+ * Builds 7-column (Sun–Sat) week rows for a month.
+ * Every cell is a YYYY-MM-DD string (may be outside the month).
+ */
+function buildWeekRows(allDays: string[]): string[][] {
   if (allDays.length === 0) return [];
-  const daySet = new Set(allDays);
-  const cursor = new Date(fromDateString(allDays[0]!));
-  const firstDow = cursor.getDay();
-  cursor.setDate(cursor.getDate() - (firstDow === 0 ? 6 : firstDow - 1));
+  const cursor = fromDateString(allDays[0]!);
+  cursor.setDate(cursor.getDate() - cursor.getDay()); // back to Sunday
   const lastDay = fromDateString(allDays[allDays.length - 1]!);
-  const weeks: (string | null)[][] = [];
+  const weeks: string[][] = [];
   while (cursor <= lastDay) {
-    const week: (string | null)[] = [];
-    for (let d = 0; d < 5; d++) {
-      const s = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
-      week.push(daySet.has(s) ? s : null);
+    const week: string[] = [];
+    for (let d = 0; d < 7; d++) {
+      week.push(toDateString(cursor));
       cursor.setDate(cursor.getDate() + 1);
     }
-    cursor.setDate(cursor.getDate() + 2);
     weeks.push(week);
   }
   return weeks;

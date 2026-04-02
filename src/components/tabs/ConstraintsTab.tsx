@@ -1,6 +1,6 @@
 import { useApp } from '../../store/AppContext';
 import type { ShiftType } from '../../types';
-import { ALL_ROLES, ALL_SHIFTS, SHIFT_LABELS } from '../../types';
+import { ALL_ROLES, DAILY_SHIFTS, WEEKLY_SHIFTS, SHIFT_LABELS } from '../../types';
 
 export default function ConstraintsTab() {
   const { state, setSlotCount, setWeeklyCap, setWeeklyTypeCap } = useApp();
@@ -11,17 +11,17 @@ export default function ConstraintsTab() {
         <div className="section-title">Shifts per Day</div>
         <div className="card">
           <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
-            How many people are needed for each shift type each day.
+            How many people are needed for each daily shift type.
           </p>
           <table className="data-table" style={{ width: 'auto' }}>
             <thead>
               <tr>
                 <th>Shift</th>
-                <th>Shifts per day</th>
+                <th>People per day</th>
               </tr>
             </thead>
             <tbody>
-              {ALL_SHIFTS.map(s => (
+              {DAILY_SHIFTS.map(s => (
                 <tr key={s}>
                   <td><span className={`shift-chip shift-${s}`}>{SHIFT_LABELS[s]}</span></td>
                   <td>
@@ -44,16 +44,22 @@ export default function ConstraintsTab() {
         <div className="section-title">Weekly Caps per Role</div>
         <div className="card">
           <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
-            Maximum shifts per week for each role. Leave per-type caps blank to apply no per-type limit.
+            Maximum shifts per week for each role. Leave per-type caps blank for no limit.
+            Check QP columns to allow that role to be assigned as Question Person.
           </p>
           <table className="data-table">
             <thead>
               <tr>
                 <th>Role</th>
                 <th>Max shifts/week</th>
-                {ALL_SHIFTS.map(s => (
+                {DAILY_SHIFTS.map(s => (
                   <th key={s}>
                     <span className={`shift-chip shift-${s}`}>{SHIFT_LABELS[s]}</span>/week
+                  </th>
+                ))}
+                {WEEKLY_SHIFTS.map(s => (
+                  <th key={s}>
+                    <span className={`shift-chip shift-${s}`}>{SHIFT_LABELS[s]}</span>
                   </th>
                 ))}
               </tr>
@@ -73,12 +79,10 @@ export default function ConstraintsTab() {
                         min={0}
                         max={25}
                         value={cap.maxShiftsPerWeek}
-                        onChange={e =>
-                          setWeeklyCap(role, Math.max(0, parseInt(e.target.value) || 0))
-                        }
+                        onChange={e => setWeeklyCap(role, Math.max(0, parseInt(e.target.value) || 0))}
                       />
                     </td>
-                    {ALL_SHIFTS.map(s => (
+                    {DAILY_SHIFTS.map(s => (
                       <td key={s}>
                         <input
                           type="number"
@@ -94,6 +98,15 @@ export default function ConstraintsTab() {
                               setWeeklyTypeCap(role, s as ShiftType, Math.max(0, parseInt(val) || 0));
                             }
                           }}
+                        />
+                      </td>
+                    ))}
+                    {WEEKLY_SHIFTS.map(s => (
+                      <td key={s} style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={(cap.maxPerType[s] ?? 1) > 0}
+                          onChange={e => setWeeklyTypeCap(role, s as ShiftType, e.target.checked ? null : 0)}
                         />
                       </td>
                     ))}
