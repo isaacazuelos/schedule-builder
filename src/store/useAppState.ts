@@ -7,6 +7,7 @@ import type {
   ShiftType,
   DayBlock,
   DateOverride,
+  RoleOverride,
   Schedule,
   TabName,
   ExportedConfig,
@@ -29,6 +30,8 @@ type Action =
   | { type: 'TOGGLE_TRAINED_SHIFT'; id: string; shift: ShiftType }
   | { type: 'TOGGLE_OVERRIDE'; staffId: string; date: string; period: 'am' | 'pm'; available: boolean }
   | { type: 'REMOVE_OVERRIDE'; staffId: string; date: string; period: 'am' | 'pm' }
+  | { type: 'TOGGLE_ROLE_OVERRIDE'; role: Role; date: string; period: 'am' | 'pm'; available: boolean }
+  | { type: 'REMOVE_ROLE_OVERRIDE'; role: Role; date: string; period: 'am' | 'pm' }
   | { type: 'TOGGLE_HOLIDAY'; date: string }
   | { type: 'SET_SLOT_COUNT'; shift: ShiftType; count: number }
   | { type: 'SET_WEEKLY_CAP'; role: Role; maxShiftsPerWeek: number }
@@ -57,6 +60,7 @@ const initialState: AppState = {
   staff: [],
   csvUnavailability: {},
   overrides: [],
+  roleOverrides: [],
   holidays: [],
   slotCounts: { ...DEFAULT_SLOT_COUNTS },
   weeklyCaps: DEFAULT_WEEKLY_CAPS.map(c => ({ ...c, maxPerType: { ...c.maxPerType } })),
@@ -159,6 +163,30 @@ function reducer(state: AppState, action: Action): AppState {
         ),
       };
 
+    case 'TOGGLE_ROLE_OVERRIDE': {
+      const matchRole = (o: RoleOverride) =>
+        o.role === action.role && o.date === action.date && o.period === action.period;
+      const existingRole = state.roleOverrides.find(matchRole);
+      let roleOverrides: RoleOverride[];
+      if (existingRole && existingRole.available === action.available) {
+        roleOverrides = state.roleOverrides.filter(o => !matchRole(o));
+      } else {
+        roleOverrides = [
+          ...state.roleOverrides.filter(o => !matchRole(o)),
+          { role: action.role, date: action.date, period: action.period, available: action.available },
+        ];
+      }
+      return { ...state, roleOverrides };
+    }
+
+    case 'REMOVE_ROLE_OVERRIDE':
+      return {
+        ...state,
+        roleOverrides: state.roleOverrides.filter(
+          o => !(o.role === action.role && o.date === action.date && o.period === action.period)
+        ),
+      };
+
     case 'TOGGLE_HOLIDAY': {
       const has = state.holidays.includes(action.date);
       return {
@@ -212,6 +240,7 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         staff: action.config.staff,
         overrides: action.config.overrides,
+        roleOverrides: action.config.roleOverrides ?? [],
         holidays: action.config.holidays,
         // Merge with defaults so old exported configs missing qp-am/qp-pm still work
         slotCounts: { ...DEFAULT_SLOT_COUNTS, ...action.config.slotCounts },
@@ -224,7 +253,7 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, staff: [], csvUnavailability: {}, overrides: [] };
 
     case 'CLEAR_AVAILABILITY':
-      return { ...state, csvUnavailability: {}, overrides: [] };
+      return { ...state, csvUnavailability: {}, overrides: [], roleOverrides: [] };
 
     case 'SET_PENDING_IMPORT':
       return { ...state, pendingImport: { events: action.events } };
@@ -278,6 +307,8 @@ export function useAppState() {
   const toggleTrainedShift = useCallback((id: string, shift: ShiftType) => dispatch({ type: 'TOGGLE_TRAINED_SHIFT', id, shift }), []);
   const toggleOverride = useCallback((staffId: string, date: string, period: 'am' | 'pm', available: boolean) => dispatch({ type: 'TOGGLE_OVERRIDE', staffId, date, period, available }), []);
   const removeOverride = useCallback((staffId: string, date: string, period: 'am' | 'pm') => dispatch({ type: 'REMOVE_OVERRIDE', staffId, date, period }), []);
+  const toggleRoleOverride = useCallback((role: Role, date: string, period: 'am' | 'pm', available: boolean) => dispatch({ type: 'TOGGLE_ROLE_OVERRIDE', role, date, period, available }), []);
+  const removeRoleOverride = useCallback((role: Role, date: string, period: 'am' | 'pm') => dispatch({ type: 'REMOVE_ROLE_OVERRIDE', role, date, period }), []);
   const toggleHoliday = useCallback((date: string) => dispatch({ type: 'TOGGLE_HOLIDAY', date }), []);
   const setSlotCount = useCallback((shift: ShiftType, count: number) => dispatch({ type: 'SET_SLOT_COUNT', shift, count }), []);
   const setWeeklyCap = useCallback((role: Role, max: number) => dispatch({ type: 'SET_WEEKLY_CAP', role, maxShiftsPerWeek: max }), []);
@@ -293,19 +324,36 @@ export function useAppState() {
   const confirmPendingImport = useCallback(() => dispatch({ type: 'CONFIRM_PENDING_IMPORT' }), []);
   const cancelPendingImport = useCallback(() => dispatch({ type: 'CANCEL_PENDING_IMPORT' }), []);
 
-  /** Compute effective availability for a specific date and half-day period. */
+  /** Compute effective availability for a specific date and half-day period.
+   *  Precedence: individual override > CSV import > role override > default (available). */
   const isAvailable = useCallback(
     (staffId: string, date: string, period: 'am' | 'pm'): boolean => {
+      // 1. Individual override wins
       const override = state.overrides.find(
         o => o.staffId === staffId && o.date === date && o.period === period
       );
       if (override !== undefined) return override.available;
+
+      // 2. CSV import
       const block = state.csvUnavailability[staffId]?.[date];
-      if (!block) return true;
-      if (block === 'both') return false;
-      return block !== period;
+      if (block) {
+        if (block === 'both') return false;
+        if (block === period) return false;
+      }
+
+      // 3. Role override
+      const member = state.staff.find(s => s.id === staffId);
+      if (member) {
+        const roleOvr = state.roleOverrides.find(
+          o => o.role === member.role && o.date === date && o.period === period
+        );
+        if (roleOvr !== undefined) return roleOvr.available;
+      }
+
+      // 4. Default: available
+      return true;
     },
-    [state.overrides, state.csvUnavailability]
+    [state.overrides, state.csvUnavailability, state.roleOverrides, state.staff]
   );
 
   return {
@@ -318,6 +366,8 @@ export function useAppState() {
     toggleTrainedShift,
     toggleOverride,
     removeOverride,
+    toggleRoleOverride,
+    removeRoleOverride,
     toggleHoliday,
     setSlotCount,
     setWeeklyCap,

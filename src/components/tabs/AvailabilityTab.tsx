@@ -3,11 +3,15 @@ import { v4 as uuidv4 } from 'uuid';
 import { useApp } from '../../store/AppContext';
 import { parseSharedCalendarCsv, bestStaffMatch, findMatchInSubject } from '../../utils/csvParser';
 import { getDaysInMonth, dowLabel, fromDateString } from '../../utils/dateUtils';
+import type { Role } from '../../types';
 
 export default function AvailabilityTab() {
   const {
     state,
     toggleOverride,
+    removeOverride,
+    toggleRoleOverride,
+    removeRoleOverride,
     toggleHoliday,
     clearAvailability,
     setPendingImport,
@@ -30,14 +34,50 @@ export default function AvailabilityTab() {
   const allDays = getDaysInMonth(state.targetMonth);
 
   function isAvailable(staffId: string, date: string, period: 'am' | 'pm'): boolean {
+    // 1. Individual override wins
     const override = state.overrides.find(
       o => o.staffId === staffId && o.date === date && o.period === period
     );
     if (override !== undefined) return override.available;
+
+    // 2. CSV import
     const block = state.csvUnavailability[staffId]?.[date];
-    if (!block) return true;
-    if (block === 'both') return false;
-    return block !== period;
+    if (block) {
+      if (block === 'both') return false;
+      if (block === period) return false;
+    }
+
+    // 3. Role override
+    const member = state.staff.find(s => s.id === staffId);
+    if (member) {
+      const roleOvr = state.roleOverrides.find(
+        o => o.role === member.role && o.date === date && o.period === period
+      );
+      if (roleOvr !== undefined) return roleOvr.available;
+    }
+
+    // 4. Default: available
+    return true;
+  }
+
+  function isRoleOverridden(role: Role, date: string, period: 'am' | 'pm'): boolean | undefined {
+    const ovr = state.roleOverrides.find(
+      o => o.role === role && o.date === date && o.period === period
+    );
+    return ovr?.available;
+  }
+
+  function handleRoleCellClick(role: Role, date: string, period: 'am' | 'pm') {
+    if (isWeekend(date) || isHoliday(date)) return;
+    const current = isRoleOverridden(role, date, period);
+    // Three-state cycle: none (·) → unavailable (✗) → available (✓) → none (·)
+    if (current === undefined) {
+      toggleRoleOverride(role, date, period, false);
+    } else if (current === false) {
+      toggleRoleOverride(role, date, period, true);
+    } else {
+      removeRoleOverride(role, date, period);
+    }
   }
 
   function isWeekend(date: string): boolean {
@@ -68,8 +108,17 @@ export default function AvailabilityTab() {
 
   function handleCellClick(staffId: string, date: string, period: 'am' | 'pm') {
     if (isWeekend(date) || isHoliday(date)) return;
-    const currently = isAvailable(staffId, date, period);
-    toggleOverride(staffId, date, period, !currently);
+    const existing = state.overrides.find(
+      o => o.staffId === staffId && o.date === date && o.period === period
+    );
+    // Three-state cycle: none → unavailable → available → none
+    if (!existing) {
+      toggleOverride(staffId, date, period, false);
+    } else if (!existing.available) {
+      toggleOverride(staffId, date, period, true);
+    } else {
+      removeOverride(staffId, date, period);
+    }
   }
 
   const workdayColumns = allDays.filter(d => !isWeekend(d));
@@ -261,7 +310,9 @@ export default function AvailabilityTab() {
         </div>
         <p className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
           Click a cell to toggle availability for that AM or PM period.
-          Green = available, Red = unavailable. Holidays are grey. Blue outline = manual override.
+          Green = available, Red = unavailable. Holidays are grey. Gold border = manual override, berry border = role override.
+          Use the <strong>All [Role]</strong> rows to block out everyone with that role at once (e.g. for weekly role meetings).
+          Precedence: individual overrides &gt; imported calendar &gt; role overrides.
         </p>
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table" style={{ minWidth: 600 }}>
@@ -317,60 +368,138 @@ export default function AvailabilityTab() {
               </tr>
             </thead>
             <tbody>
-              {sortedStaff.map(s => (
-                <tr key={s.id}>
-                  <td
-                    style={{
-                      position: 'sticky',
-                      left: 0,
-                      background: 'var(--row-bg, var(--color-bg))',
-                      zIndex: 1,
-                      fontWeight: 600,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {s.name}
-                    <span className={`badge badge-${s.role.toLowerCase()} ml-6`} style={{ marginLeft: 6 }}>
-                      {s.role}
-                    </span>
-                  </td>
-                  {workdayColumns.map((d, dateIdx) => {
-                    const holiday = isHoliday(d);
-                    return (['am', 'pm'] as const).map(period => {
-                      const avail = !holiday && isAvailable(s.id, d, period);
-                      const hasOverride = state.overrides.some(
-                        o => o.staffId === s.id && o.date === d && o.period === period
-                      );
-                      let bg = avail ? 'var(--cell-avail)' : 'var(--cell-unavail)';
-                      if (holiday) bg = 'var(--cell-holiday)';
+              {(() => {
+                const rows: React.ReactNode[] = [];
+                let prevRole: Role | null = null;
 
-                      return (
+                for (const s of sortedStaff) {
+                  // Insert role override row when starting a new role group
+                  if (s.role !== prevRole) {
+                    prevRole = s.role;
+                    rows.push(
+                      <tr key={`role-${s.role}`} style={{ background: 'var(--color-bg-muted, #f0f0f0)' }}>
                         <td
-                          key={`${d}-${period}`}
-                          className={dateIdx % 2 === 1 ? 'col-even' : undefined}
                           style={{
-                            background: bg,
-                            textAlign: 'center',
-                            cursor: holiday ? 'default' : 'pointer',
-                            padding: '4px 1px',
-                            fontSize: 11,
-                            outline: hasOverride ? '2px solid #0d6efd' : undefined,
-                            userSelect: 'none',
+                            position: 'sticky',
+                            left: 0,
+                            background: 'var(--color-bg-muted, #f0f0f0)',
+                            zIndex: 1,
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            fontStyle: 'italic',
+                            fontSize: 12,
                           }}
-                          title={
-                            holiday
-                              ? 'Holiday'
-                              : `${s.name} — ${d} ${period.toUpperCase()} — ${avail ? 'Available' : 'Unavailable'}${hasOverride ? ' (override)' : ''}`
-                          }
-                          onClick={() => handleCellClick(s.id, d, period)}
                         >
-                          {holiday ? '—' : avail ? '✓' : '✗'}
+                          All {s.role}
+                          <span className={`badge badge-${s.role.toLowerCase()}`} style={{ marginLeft: 6 }}>
+                            {s.role}
+                          </span>
                         </td>
-                      );
-                    });
-                  })}
-                </tr>
-              ))}
+                        {workdayColumns.map((d, dateIdx) => {
+                          const holiday = isHoliday(d);
+                          return (['am', 'pm'] as const).map(period => {
+                            const roleAvail = isRoleOverridden(s.role, d, period);
+                            const hasRoleOvr = roleAvail !== undefined;
+                            let bg = 'var(--cell-holiday)';
+                            if (!holiday) {
+                              bg = hasRoleOvr
+                                ? (roleAvail ? 'var(--cell-avail)' : 'var(--cell-unavail)')
+                                : 'var(--color-bg-muted, #f0f0f0)';
+                            }
+
+                            return (
+                              <td
+                                key={`${d}-${period}`}
+                                className={dateIdx % 2 === 1 ? 'col-even' : undefined}
+                                style={{
+                                  background: bg,
+                                  textAlign: 'center',
+                                  cursor: holiday ? 'default' : 'pointer',
+                                  padding: '4px 1px',
+                                  fontSize: 11,
+                                  boxShadow: hasRoleOvr ? 'inset 0 0 0 2px #9c0534' : undefined,
+                                  userSelect: 'none',
+                                }}
+                                title={
+                                  holiday
+                                    ? 'Holiday'
+                                    : `All ${s.role} — ${d} ${period.toUpperCase()} — ${hasRoleOvr ? (roleAvail ? 'Available' : 'Unavailable') : 'No override'}`
+                                }
+                                onClick={() => handleRoleCellClick(s.role, d, period)}
+                              >
+                                {holiday ? '—' : hasRoleOvr ? (roleAvail ? '✓' : '✗') : '·'}
+                              </td>
+                            );
+                          });
+                        })}
+                      </tr>
+                    );
+                  }
+
+                  rows.push(
+                    <tr key={s.id}>
+                      <td
+                        style={{
+                          position: 'sticky',
+                          left: 0,
+                          background: 'var(--row-bg, var(--color-bg))',
+                          zIndex: 1,
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {s.name}
+                        <span className={`badge badge-${s.role.toLowerCase()} ml-6`} style={{ marginLeft: 6 }}>
+                          {s.role}
+                        </span>
+                      </td>
+                      {workdayColumns.map((d, dateIdx) => {
+                        const holiday = isHoliday(d);
+                        return (['am', 'pm'] as const).map(period => {
+                          const avail = !holiday && isAvailable(s.id, d, period);
+                          const hasOverride = state.overrides.some(
+                            o => o.staffId === s.id && o.date === d && o.period === period
+                          );
+                          const hasRoleOvr = !hasOverride && isRoleOverridden(s.role, d, period) !== undefined;
+                          let bg = avail ? 'var(--cell-avail)' : 'var(--cell-unavail)';
+                          if (holiday) bg = 'var(--cell-holiday)';
+
+                          const shadow = hasOverride
+                            ? 'inset 0 0 0 2px #ffcd00'
+                            : hasRoleOvr
+                              ? 'inset 0 0 0 2px #9c0534'
+                              : undefined;
+
+                          return (
+                            <td
+                              key={`${d}-${period}`}
+                              className={dateIdx % 2 === 1 ? 'col-even' : undefined}
+                              style={{
+                                background: bg,
+                                textAlign: 'center',
+                                cursor: holiday ? 'default' : 'pointer',
+                                padding: '4px 1px',
+                                fontSize: 11,
+                                boxShadow: shadow,
+                                userSelect: 'none',
+                              }}
+                              title={
+                                holiday
+                                  ? 'Holiday'
+                                  : `${s.name} — ${d} ${period.toUpperCase()} — ${avail ? 'Available' : 'Unavailable'}${hasOverride ? ' (override)' : ''}`
+                              }
+                              onClick={() => handleCellClick(s.id, d, period)}
+                            >
+                              {holiday ? '—' : avail ? '✓' : '✗'}
+                            </td>
+                          );
+                        });
+                      })}
+                    </tr>
+                  );
+                }
+                return rows;
+              })()}
             </tbody>
           </table>
         </div>

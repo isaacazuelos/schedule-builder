@@ -24,13 +24,22 @@ export default function OutputTab() {
       try {
         const unavailMap = new Map<string, { am: Set<string>; pm: Set<string> }>();
         for (const s of staff) {
-          const csvBlocks = state.csvUnavailability[s.id] ?? {};
           const am = new Set<string>();
           const pm = new Set<string>();
+          // Layer 1: Role overrides (lowest precedence)
+          for (const ro of state.roleOverrides) {
+            if (ro.role !== s.role) continue;
+            const set = ro.period === 'am' ? am : pm;
+            if (ro.available) set.delete(ro.date);
+            else set.add(ro.date);
+          }
+          // Layer 2: CSV imports
+          const csvBlocks = state.csvUnavailability[s.id] ?? {};
           for (const [date, block] of Object.entries(csvBlocks)) {
             if (block === 'am' || block === 'both') am.add(date);
             if (block === 'pm' || block === 'both') pm.add(date);
           }
+          // Layer 3: Individual overrides (highest precedence)
           for (const o of state.overrides) {
             if (o.staffId !== s.id) continue;
             const set = o.period === 'am' ? am : pm;

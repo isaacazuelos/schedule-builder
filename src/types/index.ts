@@ -39,6 +39,14 @@ export interface DateOverride {
   available: boolean;
 }
 
+/** A role-wide override — marks everyone with the given role as unavailable for a date/period. */
+export interface RoleOverride {
+  role: Role;
+  date: string;       // YYYY-MM-DD
+  period: 'am' | 'pm';
+  available: boolean;
+}
+
 export interface SlotCounts {
   'phones-am':   number;
   'phones-pm':   number;
@@ -107,6 +115,7 @@ export interface AppState {
   staff: StaffMember[];
   csvUnavailability: CsvUnavailability;
   overrides: DateOverride[];
+  roleOverrides: RoleOverride[];
   holidays: string[]; // YYYY-MM-DD
   slotCounts: SlotCounts;
   weeklyCaps: WeeklyCap[];
@@ -120,6 +129,7 @@ export interface AppState {
 export interface ExportedConfig {
   staff: StaffMember[];
   overrides: DateOverride[];
+  roleOverrides?: RoleOverride[];
   holidays: string[];
   slotCounts: SlotCounts;
   weeklyCaps: WeeklyCap[];

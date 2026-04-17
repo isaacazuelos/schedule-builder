@@ -219,6 +219,7 @@ function ConfigSection() {
       loadConfig({
         staff: importedStaff,
         overrides: state.overrides,
+        roleOverrides: state.roleOverrides,
         holidays: state.holidays,
         slotCounts: state.slotCounts,
         weeklyCaps: state.weeklyCaps,
