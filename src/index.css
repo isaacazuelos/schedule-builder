@@ -7,8 +7,10 @@
   --color-red-hover: #b00017;
   --color-gold: #ffcd00;
   --color-gold-hover: #e6b800;
+  --color-berry: #9c0534;
 
   --color-bg: #f5f5f5;
+  --color-bg-muted: #f0f0f0;
   --color-surface: #ffffff;
   --color-border: #d9d9d9;
   --color-border-strong: #aaaaaa;
@@ -263,6 +265,33 @@ label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .avail-cell--unavail { background: #ffd0d5; color: var(--color-danger); }
 .avail-cell--holiday { background: #efefef; color: var(--color-text-muted); }
 .avail-cell--weekend { background: #fafafa; color: #bbb; }
+
+/* Availability grid (table-based) cell and label styling */
+.avail-td {
+  text-align: center;
+  padding: 4px 1px;
+  font-size: 11px;
+  user-select: none;
+  cursor: pointer;
+}
+.avail-td--readonly { cursor: default; }
+.avail-td--override-individual { box-shadow: inset 0 0 0 2px var(--color-gold); }
+.avail-td--override-role { box-shadow: inset 0 0 0 2px var(--color-berry); }
+
+.avail-label-td {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  white-space: nowrap;
+  background: var(--row-bg, var(--color-bg));
+  font-weight: 600;
+}
+.avail-label-td--role {
+  background: var(--color-bg-muted);
+  font-weight: 700;
+  font-style: italic;
+  font-size: 12px;
+}
 
 /* ─── Calendar ──────────────────────────────────────────────────────────────── */
 .cal-grid {

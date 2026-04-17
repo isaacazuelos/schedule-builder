@@ -324,24 +324,18 @@ export function useAppState() {
   const confirmPendingImport = useCallback(() => dispatch({ type: 'CONFIRM_PENDING_IMPORT' }), []);
   const cancelPendingImport = useCallback(() => dispatch({ type: 'CANCEL_PENDING_IMPORT' }), []);
 
-  /** Compute effective availability for a specific date and half-day period.
-   *  Precedence: individual override > CSV import > role override > default (available). */
+  /** Effective availability for a (staff, date, period).
+   *  Precedence: individual override > CSV import > role override > default available. */
   const isAvailable = useCallback(
     (staffId: string, date: string, period: 'am' | 'pm'): boolean => {
-      // 1. Individual override wins
       const override = state.overrides.find(
         o => o.staffId === staffId && o.date === date && o.period === period
       );
       if (override !== undefined) return override.available;
 
-      // 2. CSV import
       const block = state.csvUnavailability[staffId]?.[date];
-      if (block) {
-        if (block === 'both') return false;
-        if (block === period) return false;
-      }
+      if (block === 'both' || block === period) return false;
 
-      // 3. Role override
       const member = state.staff.find(s => s.id === staffId);
       if (member) {
         const roleOvr = state.roleOverrides.find(
@@ -350,7 +344,6 @@ export function useAppState() {
         if (roleOvr !== undefined) return roleOvr.available;
       }
 
-      // 4. Default: available
       return true;
     },
     [state.overrides, state.csvUnavailability, state.roleOverrides, state.staff]

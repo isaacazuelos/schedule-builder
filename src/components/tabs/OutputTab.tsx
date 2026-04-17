@@ -8,13 +8,12 @@ import type { ShiftType } from '../../types';
 const DOW_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function OutputTab() {
-  const { state, setTargetMonth, setSolveStatus, setSchedule } = useApp();
+  const { state, isAvailable, setTargetMonth, setSolveStatus, setSchedule } = useApp();
   const { schedule, staff, holidays, targetMonth } = state;
 
   const workdays = getWorkdays(targetMonth, holidays);
   const hasSchedule = schedule?.status === 'optimal';
 
-  // ── Solve ───────────────────────────────────────────────────────────────────
   function handleGenerate() {
     if (staff.length === 0) { alert('Add staff members first.'); return; }
     if (workdays.length === 0) { alert('No workdays in the selected month.'); return; }
@@ -26,25 +25,9 @@ export default function OutputTab() {
         for (const s of staff) {
           const am = new Set<string>();
           const pm = new Set<string>();
-          // Layer 1: Role overrides (lowest precedence)
-          for (const ro of state.roleOverrides) {
-            if (ro.role !== s.role) continue;
-            const set = ro.period === 'am' ? am : pm;
-            if (ro.available) set.delete(ro.date);
-            else set.add(ro.date);
-          }
-          // Layer 2: CSV imports
-          const csvBlocks = state.csvUnavailability[s.id] ?? {};
-          for (const [date, block] of Object.entries(csvBlocks)) {
-            if (block === 'am' || block === 'both') am.add(date);
-            if (block === 'pm' || block === 'both') pm.add(date);
-          }
-          // Layer 3: Individual overrides (highest precedence)
-          for (const o of state.overrides) {
-            if (o.staffId !== s.id) continue;
-            const set = o.period === 'am' ? am : pm;
-            if (o.available) set.delete(o.date);
-            else set.add(o.date);
+          for (const d of workdays) {
+            if (!isAvailable(s.id, d, 'am')) am.add(d);
+            if (!isAvailable(s.id, d, 'pm')) pm.add(d);
           }
           unavailMap.set(s.id, { am, pm });
         }
