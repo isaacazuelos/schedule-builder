@@ -341,6 +341,9 @@ function buildOutputHtml(
           table += `<div style="margin-bottom:3px;"><span style="background:${bg};padding:1px 5px;border-radius:3px;font-size:11px;display:inline-block;">${SHIFT_LABELS[a.shift]}</span> ${escapeHtml(a.name)}</div>`;
         }
       }
+      if (isWorkday) {
+        table += `<div style="margin-top:4px;font-size:11px;color:#888;">WFH:</div>`;
+      }
       table += '</td>';
     }
     table += '</tr>';

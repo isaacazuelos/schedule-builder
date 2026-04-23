@@ -32,7 +32,7 @@
   --shadow: 0 1px 3px rgba(0,0,0,.10);
 
   /* UCalgary recommends Calibri for everyday use */
-  font-family: 'Calibri', 'Gill Sans', 'Trebuchet MS', Arial, sans-serif;
+  font-family: 'Calibri', Helvetica, Arial, sans-serif;
   font-size: 14px;
   color: var(--color-text);
   background: var(--color-bg);
