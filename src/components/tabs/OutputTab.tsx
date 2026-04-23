@@ -68,8 +68,9 @@ export default function OutputTab() {
         const byType: Partial<Record<ShiftType, number>> = {};
         let total = 0;
         for (const shift of Object.values(dateMap) as ShiftType[]) {
-          byType[shift] = (byType[shift] ?? 0) + 1;
-          total++;
+          const weight = WEEKLY_SHIFTS.includes(shift) ? 5 : 1;
+          byType[shift] = (byType[shift] ?? 0) + weight;
+          total += weight;
         }
         return { name: s.name, total, byType };
       }).sort((a, b) => b.total - a.total)
@@ -339,6 +340,9 @@ function buildOutputHtml(
           const bg = SHIFT_COLORS[a.shift] ?? '#eee';
           table += `<div style="margin-bottom:3px;"><span style="background:${bg};padding:1px 5px;border-radius:3px;font-size:11px;display:inline-block;">${SHIFT_LABELS[a.shift]}</span> ${escapeHtml(a.name)}</div>`;
         }
+      }
+      if (isWorkday) {
+        table += `<div style="margin-top:4px;font-size:11px;color:#888;">WFH:</div>`;
       }
       table += '</td>';
     }
