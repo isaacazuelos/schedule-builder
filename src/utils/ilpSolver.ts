@@ -121,9 +121,9 @@ export function solveSchedule(
 
         assignments[chosen.id]![sunday] = qpShift;
         qpBlockedByWeek[w]!.add(chosen.id);
-        totalShifts[chosen.id]!++;
-        weeklyShifts[chosen.id]![w]!++;
-        weeklyTypeShifts[chosen.id]![w]![qpShift]++;
+        totalShifts[chosen.id]! += 5;
+        weeklyShifts[chosen.id]![w]! += 5;
+        weeklyTypeShifts[chosen.id]![w]![qpShift] += 5;
       }
     }
   }

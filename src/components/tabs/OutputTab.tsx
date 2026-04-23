@@ -68,8 +68,9 @@ export default function OutputTab() {
         const byType: Partial<Record<ShiftType, number>> = {};
         let total = 0;
         for (const shift of Object.values(dateMap) as ShiftType[]) {
-          byType[shift] = (byType[shift] ?? 0) + 1;
-          total++;
+          const weight = WEEKLY_SHIFTS.includes(shift) ? 5 : 1;
+          byType[shift] = (byType[shift] ?? 0) + weight;
+          total += weight;
         }
         return { name: s.name, total, byType };
       }).sort((a, b) => b.total - a.total)
