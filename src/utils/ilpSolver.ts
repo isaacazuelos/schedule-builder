@@ -8,8 +8,9 @@
  *   QP assignments are stored on the Sunday of each work-week.
  *
  * Phase 2 – Daily shifts:
- *   For each workday and daily-shift slot, picks randomly from eligible staff
- *   who currently have the fewest total shifts (minimax-greedy).
+ *   For each workday and daily-shift slot, picks from eligible staff with the
+ *   fewest total shifts (minimax-greedy). Ties broken by: fewest remaining
+ *   available days, then role preference (OP2 > SA1 > SA2), then random.
  *   Eligibility respects per-period AM/PM availability.
  *
  * Time complexity: O(weeks × staff + days × shifts × staff) — effectively instant.
@@ -23,7 +24,7 @@ import type {
   AssignmentMap,
   Schedule,
 } from '../types';
-import { ALL_SHIFTS, DAILY_SHIFTS, WEEKLY_SHIFTS, SHIFT_LABELS } from '../types';
+import { ALL_SHIFTS, ALL_ROLES, DAILY_SHIFTS, WEEKLY_SHIFTS, SHIFT_LABELS } from '../types';
 import { groupByWeek, getSundayOfWeek } from './dateUtils';
 
 /** Per-staff AM/PM unavailability maps (derived from CSV + overrides in the caller). */
@@ -31,6 +32,39 @@ export type UnavailMap = Map<string, { am: Set<string>; pm: Set<string> }>;
 
 function getPeriod(shift: ShiftType): 'am' | 'pm' {
   return shift.endsWith('-am') ? 'am' : 'pm';
+}
+
+/** True if person is not QP-blocked and not unavailable for the entire day. */
+function isAvailableOnDay(
+  staffId: string,
+  date: string,
+  weekIdx: number,
+  qpBlockedByWeek: Set<string>[],
+  unavailable: UnavailMap,
+): boolean {
+  if (qpBlockedByWeek[weekIdx]!.has(staffId)) return false;
+  const unavail = unavailable.get(staffId);
+  return !(unavail && unavail.am.has(date) && unavail.pm.has(date));
+}
+
+/**
+ * Pick from candidates with the fewest shifts.
+ * Tiebreakers: 1) fewest remaining available days, 2) role (OP2 > SA1 > SA2), 3) random.
+ */
+function pickCandidate(
+  candidates: StaffMember[],
+  totalShifts: Record<string, number>,
+  remainingDays?: Record<string, number>,
+): StaffMember {
+  const minCount = Math.min(...candidates.map(s => totalShifts[s.id]!));
+  let tied = candidates.filter(s => totalShifts[s.id] === minCount);
+  if (remainingDays && tied.length > 1) {
+    const fewest = Math.min(...tied.map(s => remainingDays[s.id]!));
+    tied = tied.filter(s => remainingDays[s.id] === fewest);
+  }
+  const bestRoleIdx = Math.min(...tied.map(s => ALL_ROLES.indexOf(s.role)));
+  const preferred = tied.filter(s => ALL_ROLES.indexOf(s.role) === bestRoleIdx);
+  return preferred[Math.floor(Math.random() * preferred.length)]!;
 }
 
 export function solveSchedule(
@@ -115,9 +149,7 @@ export function solveSchedule(
           };
         }
 
-        const minCount = Math.min(...candidates.map(s => totalShifts[s.id]!));
-        const tied = candidates.filter(s => totalShifts[s.id] === minCount);
-        const chosen = tied[Math.floor(Math.random() * tied.length)]!;
+        const chosen = pickCandidate(candidates, totalShifts);
 
         assignments[chosen.id]![sunday] = qpShift;
         qpBlockedByWeek[w]!.add(chosen.id);
@@ -129,6 +161,14 @@ export function solveSchedule(
   }
 
   // ── Phase 2: assign daily shifts ─────────────────────────────────────────────
+  // Count remaining available workdays per person (not QP-blocked, not unavailable for either period).
+  const remainingDays: Record<string, number> = {};
+  for (const s of staff) {
+    remainingDays[s.id] = workdays.filter(d =>
+      isAvailableOnDay(s.id, d, dateToWeekIdx.get(d) ?? 0, qpBlockedByWeek, unavailable)
+    ).length;
+  }
+
   for (const d of workdays) {
     const weekIdx = dateToWeekIdx.get(d) ?? 0;
 
@@ -173,9 +213,7 @@ export function solveSchedule(
           };
         }
 
-        const minCount = Math.min(...candidates.map(s => totalShifts[s.id]!));
-        const tied = candidates.filter(s => totalShifts[s.id] === minCount);
-        const chosen = tied[Math.floor(Math.random() * tied.length)]!;
+        const chosen = pickCandidate(candidates, totalShifts, remainingDays);
 
         assignments[chosen.id]![d] = shift;
         assignedOnDay[d]!.add(chosen.id);
@@ -183,6 +221,12 @@ export function solveSchedule(
         totalShifts[chosen.id]!++;
         weeklyShifts[chosen.id]![weekIdx]!++;
         weeklyTypeShifts[chosen.id]![weekIdx]![shift]++;
+      }
+    }
+
+    for (const s of staff) {
+      if (isAvailableOnDay(s.id, d, weekIdx, qpBlockedByWeek, unavailable)) {
+        remainingDays[s.id]!--;
       }
     }
   }

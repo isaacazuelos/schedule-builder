@@ -1,15 +1,26 @@
+import { useState } from 'react';
 import { useApp } from '../../store/AppContext';
 import { getDaysInMonth, getWorkdays, fromDateString, formatMonth, toDateString } from '../../utils/dateUtils';
 import { exportScheduleHtml } from '../../utils/exportImport';
 import { solveSchedule } from '../../utils/ilpSolver';
-import { ALL_SHIFTS, DAILY_SHIFTS, WEEKLY_SHIFTS, SHIFT_LABELS } from '../../types';
+import { ALL_SHIFTS, ALL_ROLES, DAILY_SHIFTS, WEEKLY_SHIFTS, SHIFT_LABELS } from '../../types';
 import type { ShiftType } from '../../types';
 
 const DOW_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const HOVER_BG = '#cce5ff';
 
 export default function OutputTab() {
   const { state, isAvailable, setTargetMonth, setSolveStatus, setSchedule } = useApp();
   const { schedule, staff, holidays, targetMonth } = state;
+
+  const [hoveredName, setHoveredName] = useState<string | null>(null);
+  const nameSpan = (name: string) => (
+    <span
+      style={{ fontSize: 11, background: hoveredName === name ? HOVER_BG : undefined, borderRadius: 2, cursor: 'default' }}
+      onMouseEnter={() => setHoveredName(name)}
+      onMouseLeave={() => setHoveredName(null)}
+    >{name}</span>
+  );
 
   const workdays = getWorkdays(targetMonth, holidays);
   const hasSchedule = schedule?.status === 'optimal';
@@ -72,8 +83,11 @@ export default function OutputTab() {
           byType[shift] = (byType[shift] ?? 0) + weight;
           total += weight;
         }
-        return { name: s.name, total, byType };
-      }).sort((a, b) => b.total - a.total)
+        return { name: s.name, role: s.role, total, byType };
+      }).sort((a, b) => {
+          const roleCmp = ALL_ROLES.indexOf(a.role) - ALL_ROLES.indexOf(b.role);
+          return roleCmp !== 0 ? roleCmp : b.total - a.total;
+        })
     : [];
 
   // ── SharePoint HTML ─────────────────────────────────────────────────────────
@@ -126,7 +140,7 @@ export default function OutputTab() {
                         <span className={`shift-chip shift-${a.shift}`} style={{ fontSize: 10 }}>
                           {SHIFT_LABELS[a.shift]}
                         </span>
-                        <span style={{ fontSize: 11 }}>{a.name}</span>
+                        {nameSpan(a.name)}
                       </div>
                     ))}
 
@@ -139,7 +153,7 @@ export default function OutputTab() {
                         <span className={`shift-chip shift-${a.shift}`} style={{ fontSize: 10 }}>
                           {SHIFT_LABELS[a.shift]}
                         </span>
-                        <span style={{ fontSize: 11 }}>{a.name}</span>
+                        {nameSpan(a.name)}
                       </div>
                     ))}
                   </div>
@@ -224,15 +238,32 @@ export default function OutputTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {personCounts.map(p => (
-                    <tr key={p.name}>
-                      <td>{p.name}</td>
-                      <td><strong>{p.total}</strong></td>
-                      {ALL_SHIFTS.map(s => (
-                        <td key={s} style={{ textAlign: 'center' }}>{p.byType[s] ?? 0}</td>
-                      ))}
-                    </tr>
-                  ))}
+                  {ALL_ROLES.flatMap(role => {
+                    const members = personCounts.filter(p => p.role === role);
+                    if (members.length === 0) return [];
+                    return [
+                      <tr key={`role-${role}`} style={{ background: 'var(--color-bg-muted)' }}>
+                        <td colSpan={2 + ALL_SHIFTS.length} style={{ fontWeight: 600 }}>
+                          <span className={`badge badge-${role.toLowerCase()}`} style={{ marginRight: 6 }}>
+                            {role}
+                          </span>
+                        </td>
+                      </tr>,
+                      ...members.map(p => (
+                        <tr key={p.name} style={{ background: hoveredName === p.name ? HOVER_BG : undefined }}>
+                          <td
+                            style={{ cursor: 'default' }}
+                            onMouseEnter={() => setHoveredName(p.name)}
+                            onMouseLeave={() => setHoveredName(null)}
+                          >{p.name}</td>
+                          <td><strong>{p.total}</strong></td>
+                          {ALL_SHIFTS.map(s => (
+                            <td key={s} style={{ textAlign: 'center' }}>{p.byType[s] ?? 0}</td>
+                          ))}
+                        </tr>
+                      )),
+                    ];
+                  })}
                 </tbody>
               </table>
             </>
