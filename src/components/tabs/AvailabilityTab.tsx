@@ -4,7 +4,7 @@ import { useApp } from '../../store/AppContext';
 import { parseSharedCalendarCsv, bestStaffMatch, findMatchInSubject } from '../../utils/csvParser';
 import { getDaysInMonth, dowLabel, fromDateString } from '../../utils/dateUtils';
 import type { Role, StaffMember, Team } from '../../types';
-import { TEAM_LABELS, teamOf } from '../../types';
+import { ALL_TEAMS, ROLE_ORDER, TEAM_LABELS, teamOf } from '../../types';
 
 type Period = 'am' | 'pm';
 
@@ -146,12 +146,10 @@ export default function AvailabilityTab() {
 
   const workdayColumns = allDays.filter(d => !isWeekend(d));
 
-  const ROLE_ORDER: Record<string, number> = { OP2: 0, SA1: 1, SA2: 2 };
-  const TEAM_ORDER: Record<Team, number> = { domestic: 0, international: 1 };
   const sortedStaff = [...state.staff].sort((a, b) => {
-    const roleCmp = (ROLE_ORDER[a.role] ?? 0) - (ROLE_ORDER[b.role] ?? 0);
+    const roleCmp = ROLE_ORDER[a.role] - ROLE_ORDER[b.role];
     if (roleCmp !== 0) return roleCmp;
-    const teamCmp = TEAM_ORDER[teamOf(a)] - TEAM_ORDER[teamOf(b)];
+    const teamCmp = ALL_TEAMS.indexOf(teamOf(a)) - ALL_TEAMS.indexOf(teamOf(b));
     if (teamCmp !== 0) return teamCmp;
     return a.name.localeCompare(b.name);
   });
@@ -435,7 +433,7 @@ export default function AvailabilityTab() {
                         {s.role}
                       </span>
                       {s.isInternational && (
-                        <span className="badge" style={{ marginLeft: 4, background: '#e7f1ff', color: '#0a58ca' }}>
+                        <span className="badge badge-international" style={{ marginLeft: 4 }}>
                           Intl
                         </span>
                       )}
@@ -445,7 +443,7 @@ export default function AvailabilityTab() {
                         const holiday = isHoliday(d);
                         const avail = !holiday && isAvailable(s.id, d, period);
                         const indiv = individualOverrideValue(s.id, d, period) !== undefined;
-                        const roleFallback = !indiv && roleOverrideValue(s.role, teamOf(s), d, period) !== undefined;
+                        const roleFallback = !indiv && roleOverrideValue(s.role, team, d, period) !== undefined;
                         return renderGridCell({
                           key: `${d}-${period}`,
                           dateIdx,

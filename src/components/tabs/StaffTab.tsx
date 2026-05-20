@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useApp } from '../../store/AppContext';
 import type { Role, ShiftType } from '../../types';
-import { ALL_ROLES, ALL_SHIFTS, SHIFT_LABELS, DEFAULT_TRAINED_BY_ROLE } from '../../types';
+import { ALL_ROLES, ALL_SHIFTS, SHIFT_LABELS, DEFAULT_TRAINED_BY_ROLE, ROLE_ORDER, INTL_CSV_COLUMN } from '../../types';
 import { v4 as uuidv4 } from 'uuid';
 
 type SortCol = 'name' | 'role' | 'team' | 'shifts';
 type SortDir = 'asc' | 'desc';
-
-const ROLE_ORDER: Record<string, number> = { OP2: 0, SA1: 1, SA2: 2 };
 
 export default function StaffTab() {
   const { state, addStaff, removeStaff, updateStaffName, updateStaffRole, toggleStaffInternational, toggleTrainedShift, clearAllStaff } = useApp();
@@ -189,7 +187,7 @@ function ConfigSection() {
   const { state, loadConfig } = useApp();
 
   function handleExport() {
-    const headers = ['Name', 'Role', 'International Team', ...ALL_SHIFTS.map(s => SHIFT_LABELS[s])];
+    const headers = ['Name', 'Role', INTL_CSV_COLUMN, ...ALL_SHIFTS.map(s => SHIFT_LABELS[s])];
     const rows = state.staff.map(s =>
       [s.name, s.role, s.isInternational ? '1' : '0', ...ALL_SHIFTS.map(sh => s.trainedShifts.includes(sh) ? '1' : '0')]
     );
@@ -222,7 +220,7 @@ function ConfigSection() {
         const idx = headers.indexOf(SHIFT_LABELS[sh].toLowerCase());
         return idx !== -1 ? [{ idx, shift: sh }] : [];
       });
-      const intlIdx = headers.indexOf('international team');
+      const intlIdx = headers.indexOf(INTL_CSV_COLUMN.toLowerCase());
 
       const importedStaff = [];
       for (let i = 1; i < lines.length; i++) {

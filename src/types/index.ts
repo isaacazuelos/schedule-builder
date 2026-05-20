@@ -9,10 +9,16 @@ export const ALL_SHIFTS: ShiftType[]    = [...DAILY_SHIFTS, ...WEEKLY_SHIFTS];
 export const ALL_ROLES: Role[]          = ['OP2', 'SA1', 'SA2'];
 export const ALL_TEAMS: Team[]          = ['domestic', 'international'];
 
+/** Display order for role and team — used as sort keys across tabs. */
+export const ROLE_ORDER: Record<Role, number> = { OP2: 0, SA1: 1, SA2: 2 };
+
 export const TEAM_LABELS: Record<Team, string> = {
   domestic: 'Domestic',
   international: 'International',
 };
+
+/** Header label for the International Team column in the staff CSV. */
+export const INTL_CSV_COLUMN = 'International Team';
 
 export function teamOf(s: { isInternational: boolean }): Team {
   return s.isInternational ? 'international' : 'domestic';
@@ -86,14 +92,20 @@ export interface WeeklyCap {
   maxPerType: Partial<Record<ShiftType, number>>;
 }
 
-export const DEFAULT_WEEKLY_CAPS: WeeklyCap[] = [
-  { role: 'OP2', team: 'domestic',      maxShiftsPerWeek: 5, maxPerType: { 'qp-am': 0, 'qp-pm': 0 } },
-  { role: 'OP2', team: 'international', maxShiftsPerWeek: 5, maxPerType: { 'qp-am': 0, 'qp-pm': 0 } },
-  { role: 'SA1', team: 'domestic',      maxShiftsPerWeek: 5, maxPerType: {} },
-  { role: 'SA1', team: 'international', maxShiftsPerWeek: 5, maxPerType: {} },
-  { role: 'SA2', team: 'domestic',      maxShiftsPerWeek: 5, maxPerType: {} },
-  { role: 'SA2', team: 'international', maxShiftsPerWeek: 5, maxPerType: {} },
-];
+const DEFAULT_MAX_PER_TYPE_BY_ROLE: Record<Role, Partial<Record<ShiftType, number>>> = {
+  OP2: { 'qp-am': 0, 'qp-pm': 0 },
+  SA1: {},
+  SA2: {},
+};
+
+export const DEFAULT_WEEKLY_CAPS: WeeklyCap[] = ALL_ROLES.flatMap(role =>
+  ALL_TEAMS.map(team => ({
+    role,
+    team,
+    maxShiftsPerWeek: 5,
+    maxPerType: { ...DEFAULT_MAX_PER_TYPE_BY_ROLE[role] },
+  }))
+);
 
 /** Which shift windows a calendar event blocks. */
 export type DayBlock = 'am' | 'pm' | 'both';

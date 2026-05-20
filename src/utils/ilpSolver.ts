@@ -59,6 +59,12 @@ export function solveSchedule(
 
   const weeks = groupByWeek(workdays);
 
+  const capByStaffId = new Map<string, WeeklyCap>();
+  for (const s of staff) {
+    const cap = weeklyCaps.find(c => c.role === s.role && c.team === teamOf(s));
+    if (cap) capByStaffId.set(s.id, cap);
+  }
+
   // Index week membership for fast lookup: date -> weekIdx
   const dateToWeekIdx = new Map<string, number>();
   for (let w = 0; w < weeks.length; w++) {
@@ -111,7 +117,7 @@ export function solveSchedule(
             if (weekDays.some(d => unavailSet.has(d))) return false;
           }
 
-          const cap = weeklyCaps.find(c => c.role === s.role && c.team === teamOf(s));
+          const cap = capByStaffId.get(s.id);
           if (cap && weeklyShifts[s.id]![w]! >= cap.maxShiftsPerWeek) return false;
 
           return true;
@@ -168,7 +174,7 @@ export function solveSchedule(
             if (unavailSet.has(d)) return false;
           }
 
-          const cap = weeklyCaps.find(c => c.role === s.role && c.team === teamOf(s));
+          const cap = capByStaffId.get(s.id);
           if (cap) {
             if (weeklyShifts[s.id]![weekIdx]! >= cap.maxShiftsPerWeek) return false;
             const typeMax = cap.maxPerType[shift];
