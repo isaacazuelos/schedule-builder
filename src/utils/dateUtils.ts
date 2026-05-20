@@ -24,10 +24,28 @@ export function getDaysInMonth(yearMonth: string): string[] {
   return days;
 }
 
-/** Returns Mon–Fri workdays in a month, excluding holidays. */
+/**
+ * Returns all days for a schedule: the full month plus any remaining Mon–Fri days
+ * needed to complete the final week when the month ends mid-week.
+ */
+export function getScheduleDays(yearMonth: string): string[] {
+  const days = getDaysInMonth(yearMonth);
+  const lastDay = fromDateString(days[days.length - 1]!);
+  const lastDow = lastDay.getDay(); // 0=Sun, 6=Sat
+  if (lastDow >= 1 && lastDow <= 4) {
+    for (let offset = 1; lastDow + offset <= 5; offset++) {
+      const d = new Date(lastDay);
+      d.setDate(d.getDate() + offset);
+      days.push(toDateString(d));
+    }
+  }
+  return days;
+}
+
+/** Returns Mon–Fri workdays for a schedule month (including trailing partial week), excluding holidays. */
 export function getWorkdays(yearMonth: string, holidays: string[]): string[] {
   const holidaySet = new Set(holidays);
-  return getDaysInMonth(yearMonth).filter(d => {
+  return getScheduleDays(yearMonth).filter(d => {
     const dow = fromDateString(d).getDay(); // 0=Sun, 6=Sat
     return dow >= 1 && dow <= 5 && !holidaySet.has(d);
   });

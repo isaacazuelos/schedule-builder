@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../../store/AppContext';
-import { getDaysInMonth, getWorkdays, fromDateString, formatMonth, toDateString } from '../../utils/dateUtils';
+import { getScheduleDays, getWorkdays, fromDateString, formatMonth, toDateString } from '../../utils/dateUtils';
 import { exportScheduleHtml } from '../../utils/exportImport';
 import { solveSchedule } from '../../utils/ilpSolver';
 import { ALL_SHIFTS, ALL_ROLES, DAILY_SHIFTS, WEEKLY_SHIFTS, SHIFT_LABELS } from '../../types';
@@ -56,7 +56,7 @@ export default function OutputTab() {
 
   // ── Calendar grid data ──────────────────────────────────────────────────────
   const calMonth = hasSchedule ? schedule!.month : targetMonth;
-  const allDays = getDaysInMonth(calMonth);
+  const allDays = getScheduleDays(calMonth);
   const monthDaySet = new Set(allDays);
   const weeks = buildWeekRows(allDays);
 
@@ -305,7 +305,7 @@ function buildOutputHtml(
   staff: { id: string; name: string }[],
   holidays: string[]
 ): string {
-  const allDays = getDaysInMonth(month);
+  const allDays = getScheduleDays(month);
   const holidaySet = new Set(holidays);
   const monthDaySet = new Set(allDays);
 
