@@ -4,15 +4,16 @@ import type { Role, ShiftType } from '../../types';
 import { ALL_ROLES, ALL_SHIFTS, SHIFT_LABELS, DEFAULT_TRAINED_BY_ROLE } from '../../types';
 import { v4 as uuidv4 } from 'uuid';
 
-type SortCol = 'name' | 'role' | 'shifts';
+type SortCol = 'name' | 'role' | 'team' | 'shifts';
 type SortDir = 'asc' | 'desc';
 
 const ROLE_ORDER: Record<string, number> = { OP2: 0, SA1: 1, SA2: 2 };
 
 export default function StaffTab() {
-  const { state, addStaff, removeStaff, updateStaffName, updateStaffRole, toggleTrainedShift, clearAllStaff } = useApp();
+  const { state, addStaff, removeStaff, updateStaffName, updateStaffRole, toggleStaffInternational, toggleTrainedShift, clearAllStaff } = useApp();
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<Role>('SA1');
+  const [newIsInternational, setNewIsInternational] = useState(false);
   const [sortCol, setSortCol] = useState<SortCol | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
@@ -29,6 +30,7 @@ export default function StaffTab() {
     let cmp = 0;
     if (sortCol === 'name') cmp = a.name.localeCompare(b.name);
     else if (sortCol === 'role') cmp = (ROLE_ORDER[a.role] ?? 0) - (ROLE_ORDER[b.role] ?? 0);
+    else if (sortCol === 'team') cmp = Number(a.isInternational) - Number(b.isInternational);
     else if (sortCol === 'shifts') cmp = a.trainedShifts.length - b.trainedShifts.length;
     return sortDir === 'asc' ? cmp : -cmp;
   });
@@ -36,8 +38,9 @@ export default function StaffTab() {
   function handleAdd() {
     const name = newName.trim();
     if (!name) return;
-    addStaff(name, newRole);
+    addStaff(name, newRole, newIsInternational);
     setNewName('');
+    setNewIsInternational(false);
   }
 
   return (
@@ -57,6 +60,14 @@ export default function StaffTab() {
             <select value={newRole} onChange={e => setNewRole(e.target.value as Role)}>
               {ALL_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13 }}>
+              <input
+                type="checkbox"
+                checked={newIsInternational}
+                onChange={e => setNewIsInternational(e.target.checked)}
+              />
+              International team
+            </label>
             <button className="btn btn-primary" onClick={handleAdd} disabled={!newName.trim()}>
               Add
             </button>
@@ -80,13 +91,13 @@ export default function StaffTab() {
             <table className="data-table">
               <thead>
                 <tr>
-                  {(['name', 'role', 'shifts'] as SortCol[]).map(col => (
+                  {(['name', 'role', 'team', 'shifts'] as SortCol[]).map(col => (
                     <th
                       key={col}
                       onClick={() => handleSort(col)}
                       style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                     >
-                      {col === 'name' ? 'Name' : col === 'role' ? 'Role' : 'Trained Shifts'}
+                      {col === 'name' ? 'Name' : col === 'role' ? 'Role' : col === 'team' ? 'Intl' : 'Trained Shifts'}
                       {sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ' ⇅'}
                     </th>
                   ))}
@@ -113,6 +124,14 @@ export default function StaffTab() {
                           <option key={r} value={r}>{r}</option>
                         ))}
                       </select>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={s.isInternational}
+                        onChange={() => toggleStaffInternational(s.id)}
+                        title="On the international team"
+                      />
                     </td>
                     <td>
                       <div className="row" style={{ gap: 12 }}>
@@ -170,9 +189,9 @@ function ConfigSection() {
   const { state, loadConfig } = useApp();
 
   function handleExport() {
-    const headers = ['Name', 'Role', ...ALL_SHIFTS.map(s => SHIFT_LABELS[s])];
+    const headers = ['Name', 'Role', 'International Team', ...ALL_SHIFTS.map(s => SHIFT_LABELS[s])];
     const rows = state.staff.map(s =>
-      [s.name, s.role, ...ALL_SHIFTS.map(sh => s.trainedShifts.includes(sh) ? '1' : '0')]
+      [s.name, s.role, s.isInternational ? '1' : '0', ...ALL_SHIFTS.map(sh => s.trainedShifts.includes(sh) ? '1' : '0')]
     );
     const csv = [headers, ...rows]
       .map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
@@ -203,6 +222,7 @@ function ConfigSection() {
         const idx = headers.indexOf(SHIFT_LABELS[sh].toLowerCase());
         return idx !== -1 ? [{ idx, shift: sh }] : [];
       });
+      const intlIdx = headers.indexOf('international team');
 
       const importedStaff = [];
       for (let i = 1; i < lines.length; i++) {
@@ -213,7 +233,8 @@ function ConfigSection() {
         const trainedShifts: ShiftType[] = shiftColMap.length > 0
           ? shiftColMap.filter(({ idx }) => isTruthy(row[idx])).map(({ shift }) => shift)
           : [...DEFAULT_TRAINED_BY_ROLE[role]];
-        importedStaff.push({ id: uuidv4(), name, role, trainedShifts });
+        const isInternational = intlIdx !== -1 && isTruthy(row[intlIdx]);
+        importedStaff.push({ id: uuidv4(), name, role, trainedShifts, isInternational });
       }
 
       loadConfig({
@@ -245,7 +266,7 @@ function ConfigSection() {
           </label>
         </div>
         <p className="muted mt-8" style={{ fontSize: 12 }}>
-          CSV columns: Name, Role, and one column per shift type (1 = trained, 0 = not). Importing replaces the current staff list.
+          CSV columns: Name, Role, International Team (1 = international, 0 = domestic), and one column per shift type (1 = trained, 0 = not). Importing replaces the current staff list.
         </p>
       </div>
     </div>

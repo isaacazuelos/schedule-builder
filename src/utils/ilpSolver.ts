@@ -25,7 +25,7 @@ import type {
   AssignmentMap,
   Schedule,
 } from '../types';
-import { ALL_SHIFTS, ALL_ROLES, DAILY_SHIFTS, WEEKLY_SHIFTS, SHIFT_LABELS } from '../types';
+import { ALL_SHIFTS, ALL_ROLES, DAILY_SHIFTS, WEEKLY_SHIFTS, SHIFT_LABELS, teamOf } from '../types';
 import { groupByWeek, getSundayOfWeek } from './dateUtils';
 
 /** Per-staff AM/PM unavailability maps (derived from CSV + overrides in the caller). */
@@ -111,7 +111,7 @@ export function solveSchedule(
             if (weekDays.some(d => unavailSet.has(d))) return false;
           }
 
-          const cap = weeklyCaps.find(c => c.role === s.role);
+          const cap = weeklyCaps.find(c => c.role === s.role && c.team === teamOf(s));
           if (cap && weeklyShifts[s.id]![w]! >= cap.maxShiftsPerWeek) return false;
 
           return true;
@@ -168,7 +168,7 @@ export function solveSchedule(
             if (unavailSet.has(d)) return false;
           }
 
-          const cap = weeklyCaps.find(c => c.role === s.role);
+          const cap = weeklyCaps.find(c => c.role === s.role && c.team === teamOf(s));
           if (cap) {
             if (weeklyShifts[s.id]![weekIdx]! >= cap.maxShiftsPerWeek) return false;
             const typeMax = cap.maxPerType[shift];

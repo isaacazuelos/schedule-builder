@@ -3,7 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { useApp } from '../../store/AppContext';
 import { parseSharedCalendarCsv, bestStaffMatch, findMatchInSubject } from '../../utils/csvParser';
 import { getDaysInMonth, dowLabel, fromDateString } from '../../utils/dateUtils';
-import type { Role, StaffMember } from '../../types';
+import type { Role, StaffMember, Team } from '../../types';
+import { TEAM_LABELS, teamOf } from '../../types';
 
 type Period = 'am' | 'pm';
 
@@ -18,12 +19,13 @@ function cycle<T>(
   return remove();
 }
 
-function groupByRole(staff: StaffMember[]): { role: Role; members: StaffMember[] }[] {
-  const groups: { role: Role; members: StaffMember[] }[] = [];
+function groupByRoleAndTeam(staff: StaffMember[]): { role: Role; team: Team; members: StaffMember[] }[] {
+  const groups: { role: Role; team: Team; members: StaffMember[] }[] = [];
   for (const s of staff) {
+    const team = teamOf(s);
     const last = groups[groups.length - 1];
-    if (last && last.role === s.role) last.members.push(s);
-    else groups.push({ role: s.role, members: [s] });
+    if (last && last.role === s.role && last.team === team) last.members.push(s);
+    else groups.push({ role: s.role, team, members: [s] });
   }
   return groups;
 }
@@ -86,9 +88,9 @@ export default function AvailabilityTab() {
 
   const allDays = getDaysInMonth(state.targetMonth);
 
-  function roleOverrideValue(role: Role, date: string, period: Period): boolean | undefined {
+  function roleOverrideValue(role: Role, team: Team, date: string, period: Period): boolean | undefined {
     return state.roleOverrides.find(
-      o => o.role === role && o.date === date && o.period === period
+      o => o.role === role && o.team === team && o.date === date && o.period === period
     )?.available;
   }
 
@@ -98,12 +100,12 @@ export default function AvailabilityTab() {
     )?.available;
   }
 
-  function handleRoleCellClick(role: Role, date: string, period: Period) {
+  function handleRoleCellClick(role: Role, team: Team, date: string, period: Period) {
     if (isWeekend(date) || isHoliday(date)) return;
     cycle(
-      roleOverrideValue(role, date, period),
-      v => toggleRoleOverride(role, date, period, v),
-      () => removeRoleOverride(role, date, period),
+      roleOverrideValue(role, team, date, period),
+      v => toggleRoleOverride(role, team, date, period, v),
+      () => removeRoleOverride(role, team, date, period),
     );
   }
 
@@ -145,9 +147,13 @@ export default function AvailabilityTab() {
   const workdayColumns = allDays.filter(d => !isWeekend(d));
 
   const ROLE_ORDER: Record<string, number> = { OP2: 0, SA1: 1, SA2: 2 };
+  const TEAM_ORDER: Record<Team, number> = { domestic: 0, international: 1 };
   const sortedStaff = [...state.staff].sort((a, b) => {
     const roleCmp = (ROLE_ORDER[a.role] ?? 0) - (ROLE_ORDER[b.role] ?? 0);
-    return roleCmp !== 0 ? roleCmp : a.name.localeCompare(b.name);
+    if (roleCmp !== 0) return roleCmp;
+    const teamCmp = TEAM_ORDER[teamOf(a)] - TEAM_ORDER[teamOf(b)];
+    if (teamCmp !== 0) return teamCmp;
+    return a.name.localeCompare(b.name);
   });
 
   if (state.staff.length === 0) {
@@ -332,7 +338,7 @@ export default function AvailabilityTab() {
         <p className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
           Click a cell to toggle availability for that AM or PM period.
           Green = available, Red = unavailable. Holidays are grey. Gold border = manual override, berry border = role override.
-          Use the <strong>All [Role]</strong> rows to block out everyone with that role at once (e.g. for weekly role meetings).
+          Use the <strong>All [Role] — [Team]</strong> rows to block out everyone with that role on that team at once (e.g. for weekly role meetings).
           Precedence: individual overrides &gt; imported calendar &gt; role overrides.
         </p>
         <div style={{ overflowX: 'auto' }}>
@@ -389,17 +395,17 @@ export default function AvailabilityTab() {
               </tr>
             </thead>
             <tbody>
-              {groupByRole(sortedStaff).flatMap(({ role, members }) => [
-                <tr key={`role-${role}`} style={{ background: 'var(--color-bg-muted)' }}>
+              {groupByRoleAndTeam(sortedStaff).flatMap(({ role, team, members }) => [
+                <tr key={`role-${role}-${team}`} style={{ background: 'var(--color-bg-muted)' }}>
                   <td className="avail-label-td avail-label-td--role">
-                    All {role}
+                    All {role} — {TEAM_LABELS[team]}
                     <span className={`badge badge-${role.toLowerCase()}`} style={{ marginLeft: 6 }}>
                       {role}
                     </span>
                   </td>
                   {workdayColumns.flatMap((d, dateIdx) =>
                     (['am', 'pm'] as const).map(period => {
-                      const roleAvail = roleOverrideValue(role, d, period);
+                      const roleAvail = roleOverrideValue(role, team, d, period);
                       const holiday = isHoliday(d);
                       const hasOvr = roleAvail !== undefined;
                       return renderGridCell({
@@ -415,8 +421,8 @@ export default function AvailabilityTab() {
                         overrideKind: hasOvr ? 'role' : undefined,
                         title: holiday
                           ? 'Holiday'
-                          : `All ${role} — ${d} ${period.toUpperCase()} — ${hasOvr ? (roleAvail ? 'Available' : 'Unavailable') : 'No override'}`,
-                        onClick: () => handleRoleCellClick(role, d, period),
+                          : `All ${role} ${TEAM_LABELS[team]} — ${d} ${period.toUpperCase()} — ${hasOvr ? (roleAvail ? 'Available' : 'Unavailable') : 'No override'}`,
+                        onClick: () => handleRoleCellClick(role, team, d, period),
                       });
                     })
                   )}
@@ -428,13 +434,18 @@ export default function AvailabilityTab() {
                       <span className={`badge badge-${s.role.toLowerCase()}`} style={{ marginLeft: 6 }}>
                         {s.role}
                       </span>
+                      {s.isInternational && (
+                        <span className="badge" style={{ marginLeft: 4, background: '#e7f1ff', color: '#0a58ca' }}>
+                          Intl
+                        </span>
+                      )}
                     </td>
                     {workdayColumns.flatMap((d, dateIdx) =>
                       (['am', 'pm'] as const).map(period => {
                         const holiday = isHoliday(d);
                         const avail = !holiday && isAvailable(s.id, d, period);
                         const indiv = individualOverrideValue(s.id, d, period) !== undefined;
-                        const roleFallback = !indiv && roleOverrideValue(s.role, d, period) !== undefined;
+                        const roleFallback = !indiv && roleOverrideValue(s.role, teamOf(s), d, period) !== undefined;
                         return renderGridCell({
                           key: `${d}-${period}`,
                           dateIdx,

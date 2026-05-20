@@ -1,4 +1,5 @@
 export type Role = 'OP2' | 'SA1' | 'SA2';
+export type Team = 'domestic' | 'international';
 export type ShiftType = 'phones-am' | 'phones-pm' | 'inperson-am' | 'inperson-pm' | 'qp-am' | 'qp-pm';
 export type TabName = 'staff' | 'availability' | 'constraints' | 'output';
 
@@ -6,6 +7,16 @@ export const DAILY_SHIFTS: ShiftType[]  = ['phones-am', 'phones-pm', 'inperson-a
 export const WEEKLY_SHIFTS: ShiftType[] = ['qp-am', 'qp-pm'];
 export const ALL_SHIFTS: ShiftType[]    = [...DAILY_SHIFTS, ...WEEKLY_SHIFTS];
 export const ALL_ROLES: Role[]          = ['OP2', 'SA1', 'SA2'];
+export const ALL_TEAMS: Team[]          = ['domestic', 'international'];
+
+export const TEAM_LABELS: Record<Team, string> = {
+  domestic: 'Domestic',
+  international: 'International',
+};
+
+export function teamOf(s: { isInternational: boolean }): Team {
+  return s.isInternational ? 'international' : 'domestic';
+}
 
 export const SHIFT_LABELS: Record<ShiftType, string> = {
   'phones-am':   'Phones AM',
@@ -29,6 +40,7 @@ export interface StaffMember {
   name: string;
   role: Role;
   trainedShifts: ShiftType[];
+  isInternational: boolean;
 }
 
 /** A manual override of a person's availability for a specific date and half-day period. */
@@ -39,9 +51,10 @@ export interface DateOverride {
   available: boolean;
 }
 
-/** A role-wide override — marks everyone with the given role as unavailable for a date/period. */
+/** A role+team-wide override — marks everyone with the given role on the given team as unavailable for a date/period. */
 export interface RoleOverride {
   role: Role;
+  team: Team;
   date: string;       // YYYY-MM-DD
   period: 'am' | 'pm';
   available: boolean;
@@ -68,14 +81,18 @@ export const DEFAULT_SLOT_COUNTS: SlotCounts = {
 
 export interface WeeklyCap {
   role: Role;
+  team: Team;
   maxShiftsPerWeek: number;
   maxPerType: Partial<Record<ShiftType, number>>;
 }
 
 export const DEFAULT_WEEKLY_CAPS: WeeklyCap[] = [
-  { role: 'OP2', maxShiftsPerWeek: 5, maxPerType: { 'qp-am': 0, 'qp-pm': 0 } },
-  { role: 'SA1', maxShiftsPerWeek: 5, maxPerType: {} },
-  { role: 'SA2', maxShiftsPerWeek: 5, maxPerType: {} },
+  { role: 'OP2', team: 'domestic',      maxShiftsPerWeek: 5, maxPerType: { 'qp-am': 0, 'qp-pm': 0 } },
+  { role: 'OP2', team: 'international', maxShiftsPerWeek: 5, maxPerType: { 'qp-am': 0, 'qp-pm': 0 } },
+  { role: 'SA1', team: 'domestic',      maxShiftsPerWeek: 5, maxPerType: {} },
+  { role: 'SA1', team: 'international', maxShiftsPerWeek: 5, maxPerType: {} },
+  { role: 'SA2', team: 'domestic',      maxShiftsPerWeek: 5, maxPerType: {} },
+  { role: 'SA2', team: 'international', maxShiftsPerWeek: 5, maxPerType: {} },
 ];
 
 /** Which shift windows a calendar event blocks. */
