@@ -1,4 +1,5 @@
 export type Role = 'OP2' | 'SA1' | 'SA2';
+export type Team = 'domestic' | 'international';
 export type ShiftType = 'phones-am' | 'phones-pm' | 'inperson-am' | 'inperson-pm' | 'qp-am' | 'qp-pm';
 export type TabName = 'staff' | 'availability' | 'constraints' | 'output';
 
@@ -6,6 +7,22 @@ export const DAILY_SHIFTS: ShiftType[]  = ['phones-am', 'phones-pm', 'inperson-a
 export const WEEKLY_SHIFTS: ShiftType[] = ['qp-am', 'qp-pm'];
 export const ALL_SHIFTS: ShiftType[]    = [...DAILY_SHIFTS, ...WEEKLY_SHIFTS];
 export const ALL_ROLES: Role[]          = ['OP2', 'SA1', 'SA2'];
+export const ALL_TEAMS: Team[]          = ['domestic', 'international'];
+
+/** Display order for role and team — used as sort keys across tabs. */
+export const ROLE_ORDER: Record<Role, number> = { OP2: 0, SA1: 1, SA2: 2 };
+
+export const TEAM_LABELS: Record<Team, string> = {
+  domestic: 'Domestic',
+  international: 'International',
+};
+
+/** Header label for the International Team column in the staff CSV. */
+export const INTL_CSV_COLUMN = 'International Team';
+
+export function teamOf(s: { isInternational: boolean }): Team {
+  return s.isInternational ? 'international' : 'domestic';
+}
 
 export const SHIFT_LABELS: Record<ShiftType, string> = {
   'phones-am':   'Phones AM',
@@ -29,6 +46,7 @@ export interface StaffMember {
   name: string;
   role: Role;
   trainedShifts: ShiftType[];
+  isInternational: boolean;
 }
 
 /** A manual override of a person's availability for a specific date and half-day period. */
@@ -39,9 +57,10 @@ export interface DateOverride {
   available: boolean;
 }
 
-/** A role-wide override — marks everyone with the given role as unavailable for a date/period. */
+/** A role+team-wide override — marks everyone with the given role on the given team as unavailable for a date/period. */
 export interface RoleOverride {
   role: Role;
+  team: Team;
   date: string;       // YYYY-MM-DD
   period: 'am' | 'pm';
   available: boolean;
@@ -68,15 +87,25 @@ export const DEFAULT_SLOT_COUNTS: SlotCounts = {
 
 export interface WeeklyCap {
   role: Role;
+  team: Team;
   maxShiftsPerWeek: number;
   maxPerType: Partial<Record<ShiftType, number>>;
 }
 
-export const DEFAULT_WEEKLY_CAPS: WeeklyCap[] = [
-  { role: 'OP2', maxShiftsPerWeek: 5, maxPerType: { 'qp-am': 0, 'qp-pm': 0 } },
-  { role: 'SA1', maxShiftsPerWeek: 5, maxPerType: {} },
-  { role: 'SA2', maxShiftsPerWeek: 5, maxPerType: {} },
-];
+const DEFAULT_MAX_PER_TYPE_BY_ROLE: Record<Role, Partial<Record<ShiftType, number>>> = {
+  OP2: { 'qp-am': 0, 'qp-pm': 0 },
+  SA1: {},
+  SA2: {},
+};
+
+export const DEFAULT_WEEKLY_CAPS: WeeklyCap[] = ALL_ROLES.flatMap(role =>
+  ALL_TEAMS.map(team => ({
+    role,
+    team,
+    maxShiftsPerWeek: 5,
+    maxPerType: { ...DEFAULT_MAX_PER_TYPE_BY_ROLE[role] },
+  }))
+);
 
 /** Which shift windows a calendar event blocks. */
 export type DayBlock = 'am' | 'pm' | 'both';

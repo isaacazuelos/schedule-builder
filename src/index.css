@@ -206,6 +206,7 @@ label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .badge-op2 { background: #ffeab3; color: #7a5c00; }   /* gold tint */
 .badge-sa1 { background: #ffd0d5; color: #7a000e; }   /* red tint */
 .badge-sa2 { background: #ffe5cc; color: #7a3200; }   /* orange tint */
+.badge-international { background: #e7f1ff; color: #0a58ca; }   /* blue tint */
 
 /* ─── Shift colors ──────────────────────────────────────────────────────────── */
 /* Phones: gold family; In-person: red family; QP: teal family */

@@ -4,38 +4,43 @@ import type {
   AppState,
   StaffMember,
   Role,
+  Team,
   ShiftType,
   DayBlock,
   DateOverride,
   RoleOverride,
+  WeeklyCap,
   Schedule,
   TabName,
   ExportedConfig,
   PendingImportEvent,
 } from '../types';
 import {
+  ALL_TEAMS,
   DEFAULT_SLOT_COUNTS,
   DEFAULT_WEEKLY_CAPS,
   DEFAULT_TRAINED_BY_ROLE,
+  teamOf,
 } from '../types';
 
 // ─── Action types ────────────────────────────────────────────────────────────
 
 type Action =
   | { type: 'SET_TAB'; tab: TabName }
-  | { type: 'ADD_STAFF'; name: string; role: Role }
+  | { type: 'ADD_STAFF'; name: string; role: Role; isInternational: boolean }
   | { type: 'REMOVE_STAFF'; id: string }
   | { type: 'UPDATE_STAFF_NAME'; id: string; name: string }
   | { type: 'UPDATE_STAFF_ROLE'; id: string; role: Role }
+  | { type: 'TOGGLE_STAFF_INTERNATIONAL'; id: string }
   | { type: 'TOGGLE_TRAINED_SHIFT'; id: string; shift: ShiftType }
   | { type: 'TOGGLE_OVERRIDE'; staffId: string; date: string; period: 'am' | 'pm'; available: boolean }
   | { type: 'REMOVE_OVERRIDE'; staffId: string; date: string; period: 'am' | 'pm' }
-  | { type: 'TOGGLE_ROLE_OVERRIDE'; role: Role; date: string; period: 'am' | 'pm'; available: boolean }
-  | { type: 'REMOVE_ROLE_OVERRIDE'; role: Role; date: string; period: 'am' | 'pm' }
+  | { type: 'TOGGLE_ROLE_OVERRIDE'; role: Role; team: Team; date: string; period: 'am' | 'pm'; available: boolean }
+  | { type: 'REMOVE_ROLE_OVERRIDE'; role: Role; team: Team; date: string; period: 'am' | 'pm' }
   | { type: 'TOGGLE_HOLIDAY'; date: string }
   | { type: 'SET_SLOT_COUNT'; shift: ShiftType; count: number }
-  | { type: 'SET_WEEKLY_CAP'; role: Role; maxShiftsPerWeek: number }
-  | { type: 'SET_WEEKLY_TYPE_CAP'; role: Role; shift: ShiftType; max: number | null }
+  | { type: 'SET_WEEKLY_CAP'; role: Role; team: Team; maxShiftsPerWeek: number }
+  | { type: 'SET_WEEKLY_TYPE_CAP'; role: Role; team: Team; shift: ShiftType; max: number | null }
   | { type: 'SET_TARGET_MONTH'; month: string }
   | { type: 'SET_SOLVE_STATUS'; status: 'idle' | 'solving' }
   | { type: 'SET_SCHEDULE'; schedule: Schedule }
@@ -92,9 +97,18 @@ function reducer(state: AppState, action: Action): AppState {
         name: action.name,
         role: action.role,
         trainedShifts: [...DEFAULT_TRAINED_BY_ROLE[action.role]],
+        isInternational: action.isInternational,
       };
       return { ...state, staff: [...state.staff, member] };
     }
+
+    case 'TOGGLE_STAFF_INTERNATIONAL':
+      return {
+        ...state,
+        staff: state.staff.map(s =>
+          s.id === action.id ? { ...s, isInternational: !s.isInternational } : s
+        ),
+      };
 
     case 'REMOVE_STAFF':
       return {
@@ -165,7 +179,7 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'TOGGLE_ROLE_OVERRIDE': {
       const matchRole = (o: RoleOverride) =>
-        o.role === action.role && o.date === action.date && o.period === action.period;
+        o.role === action.role && o.team === action.team && o.date === action.date && o.period === action.period;
       const existingRole = state.roleOverrides.find(matchRole);
       let roleOverrides: RoleOverride[];
       if (existingRole && existingRole.available === action.available) {
@@ -173,7 +187,7 @@ function reducer(state: AppState, action: Action): AppState {
       } else {
         roleOverrides = [
           ...state.roleOverrides.filter(o => !matchRole(o)),
-          { role: action.role, date: action.date, period: action.period, available: action.available },
+          { role: action.role, team: action.team, date: action.date, period: action.period, available: action.available },
         ];
       }
       return { ...state, roleOverrides };
@@ -183,7 +197,7 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         roleOverrides: state.roleOverrides.filter(
-          o => !(o.role === action.role && o.date === action.date && o.period === action.period)
+          o => !(o.role === action.role && o.team === action.team && o.date === action.date && o.period === action.period)
         ),
       };
 
@@ -207,7 +221,9 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         weeklyCaps: state.weeklyCaps.map(c =>
-          c.role === action.role ? { ...c, maxShiftsPerWeek: action.maxShiftsPerWeek } : c
+          c.role === action.role && c.team === action.team
+            ? { ...c, maxShiftsPerWeek: action.maxShiftsPerWeek }
+            : c
         ),
       };
 
@@ -215,7 +231,7 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         weeklyCaps: state.weeklyCaps.map(c => {
-          if (c.role !== action.role) return c;
+          if (c.role !== action.role || c.team !== action.team) return c;
           const maxPerType = { ...c.maxPerType };
           if (action.max === null) {
             delete maxPerType[action.shift];
@@ -235,19 +251,40 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SET_SCHEDULE':
       return { ...state, schedule: action.schedule, solveStatus: 'idle' };
 
-    case 'LOAD_CONFIG':
+    case 'LOAD_CONFIG': {
+      // Migrate older configs that predate the team split:
+      //   - staff without isInternational default to domestic
+      //   - role overrides without team apply to both teams
+      //   - weekly caps without team apply (identically) to both teams
+      const migratedStaff: StaffMember[] = action.config.staff.map(s => ({
+        ...s,
+        isInternational: (s as Partial<StaffMember>).isInternational ?? false,
+      }));
+
+      const rawRoleOverrides = action.config.roleOverrides ?? [];
+      const migratedRoleOverrides: RoleOverride[] = rawRoleOverrides.flatMap(o => {
+        if ((o as Partial<RoleOverride>).team) return [o as RoleOverride];
+        return ALL_TEAMS.map(team => ({ ...o, team }));
+      });
+
+      const migratedWeeklyCaps: WeeklyCap[] = action.config.weeklyCaps.flatMap(c => {
+        if ((c as Partial<WeeklyCap>).team) return [c as WeeklyCap];
+        return ALL_TEAMS.map(team => ({ ...c, team, maxPerType: { ...c.maxPerType } }));
+      });
+
       return {
         ...state,
-        staff: action.config.staff,
+        staff: migratedStaff,
         overrides: action.config.overrides,
-        roleOverrides: action.config.roleOverrides ?? [],
+        roleOverrides: migratedRoleOverrides,
         holidays: action.config.holidays,
         // Merge with defaults so old exported configs missing qp-am/qp-pm still work
         slotCounts: { ...DEFAULT_SLOT_COUNTS, ...action.config.slotCounts },
-        weeklyCaps: action.config.weeklyCaps,
+        weeklyCaps: migratedWeeklyCaps,
         targetMonth: action.config.targetMonth,
         schedule: null,
       };
+    }
 
     case 'CLEAR_ALL_STAFF':
       return { ...state, staff: [], csvUnavailability: {}, overrides: [] };
@@ -300,19 +337,20 @@ export function useAppState() {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   const setTab = useCallback((tab: TabName) => dispatch({ type: 'SET_TAB', tab }), []);
-  const addStaff = useCallback((name: string, role: Role) => dispatch({ type: 'ADD_STAFF', name, role }), []);
+  const addStaff = useCallback((name: string, role: Role, isInternational: boolean) => dispatch({ type: 'ADD_STAFF', name, role, isInternational }), []);
   const removeStaff = useCallback((id: string) => dispatch({ type: 'REMOVE_STAFF', id }), []);
   const updateStaffName = useCallback((id: string, name: string) => dispatch({ type: 'UPDATE_STAFF_NAME', id, name }), []);
   const updateStaffRole = useCallback((id: string, role: Role) => dispatch({ type: 'UPDATE_STAFF_ROLE', id, role }), []);
+  const toggleStaffInternational = useCallback((id: string) => dispatch({ type: 'TOGGLE_STAFF_INTERNATIONAL', id }), []);
   const toggleTrainedShift = useCallback((id: string, shift: ShiftType) => dispatch({ type: 'TOGGLE_TRAINED_SHIFT', id, shift }), []);
   const toggleOverride = useCallback((staffId: string, date: string, period: 'am' | 'pm', available: boolean) => dispatch({ type: 'TOGGLE_OVERRIDE', staffId, date, period, available }), []);
   const removeOverride = useCallback((staffId: string, date: string, period: 'am' | 'pm') => dispatch({ type: 'REMOVE_OVERRIDE', staffId, date, period }), []);
-  const toggleRoleOverride = useCallback((role: Role, date: string, period: 'am' | 'pm', available: boolean) => dispatch({ type: 'TOGGLE_ROLE_OVERRIDE', role, date, period, available }), []);
-  const removeRoleOverride = useCallback((role: Role, date: string, period: 'am' | 'pm') => dispatch({ type: 'REMOVE_ROLE_OVERRIDE', role, date, period }), []);
+  const toggleRoleOverride = useCallback((role: Role, team: Team, date: string, period: 'am' | 'pm', available: boolean) => dispatch({ type: 'TOGGLE_ROLE_OVERRIDE', role, team, date, period, available }), []);
+  const removeRoleOverride = useCallback((role: Role, team: Team, date: string, period: 'am' | 'pm') => dispatch({ type: 'REMOVE_ROLE_OVERRIDE', role, team, date, period }), []);
   const toggleHoliday = useCallback((date: string) => dispatch({ type: 'TOGGLE_HOLIDAY', date }), []);
   const setSlotCount = useCallback((shift: ShiftType, count: number) => dispatch({ type: 'SET_SLOT_COUNT', shift, count }), []);
-  const setWeeklyCap = useCallback((role: Role, max: number) => dispatch({ type: 'SET_WEEKLY_CAP', role, maxShiftsPerWeek: max }), []);
-  const setWeeklyTypeCap = useCallback((role: Role, shift: ShiftType, max: number | null) => dispatch({ type: 'SET_WEEKLY_TYPE_CAP', role, shift, max }), []);
+  const setWeeklyCap = useCallback((role: Role, team: Team, max: number) => dispatch({ type: 'SET_WEEKLY_CAP', role, team, maxShiftsPerWeek: max }), []);
+  const setWeeklyTypeCap = useCallback((role: Role, team: Team, shift: ShiftType, max: number | null) => dispatch({ type: 'SET_WEEKLY_TYPE_CAP', role, team, shift, max }), []);
   const setTargetMonth = useCallback((month: string) => dispatch({ type: 'SET_TARGET_MONTH', month }), []);
   const setSolveStatus = useCallback((status: 'idle' | 'solving') => dispatch({ type: 'SET_SOLVE_STATUS', status }), []);
   const setSchedule = useCallback((schedule: Schedule) => dispatch({ type: 'SET_SCHEDULE', schedule }), []);
@@ -338,8 +376,9 @@ export function useAppState() {
 
       const member = state.staff.find(s => s.id === staffId);
       if (member) {
+        const memberTeam = teamOf(member);
         const roleOvr = state.roleOverrides.find(
-          o => o.role === member.role && o.date === date && o.period === period
+          o => o.role === member.role && o.team === memberTeam && o.date === date && o.period === period
         );
         if (roleOvr !== undefined) return roleOvr.available;
       }
@@ -356,6 +395,7 @@ export function useAppState() {
     removeStaff,
     updateStaffName,
     updateStaffRole,
+    toggleStaffInternational,
     toggleTrainedShift,
     toggleOverride,
     removeOverride,
