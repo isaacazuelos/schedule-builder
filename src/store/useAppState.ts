@@ -19,6 +19,7 @@ import {
   ALL_TEAMS,
   DEFAULT_SLOT_COUNTS,
   DEFAULT_WEEKLY_CAPS,
+  DEFAULT_SHIFT_WEIGHTS,
   DEFAULT_TRAINED_BY_ROLE,
   teamOf,
 } from '../types';
@@ -39,6 +40,7 @@ type Action =
   | { type: 'REMOVE_ROLE_OVERRIDE'; role: Role; team: Team; date: string; period: 'am' | 'pm' }
   | { type: 'TOGGLE_HOLIDAY'; date: string }
   | { type: 'SET_SLOT_COUNT'; shift: ShiftType; count: number }
+  | { type: 'SET_SHIFT_WEIGHT'; shift: ShiftType; weight: number }
   | { type: 'SET_WEEKLY_CAP'; role: Role; team: Team; maxShiftsPerWeek: number }
   | { type: 'SET_WEEKLY_TYPE_CAP'; role: Role; team: Team; shift: ShiftType; max: number | null }
   | { type: 'SET_TARGET_MONTH'; month: string }
@@ -69,6 +71,7 @@ const initialState: AppState = {
   holidays: [],
   slotCounts: { ...DEFAULT_SLOT_COUNTS },
   weeklyCaps: DEFAULT_WEEKLY_CAPS.map(c => ({ ...c, maxPerType: { ...c.maxPerType } })),
+  shiftWeights: { ...DEFAULT_SHIFT_WEIGHTS },
   targetMonth: nextYearMonth(),
   schedule: null,
   solveStatus: 'idle',
@@ -217,6 +220,12 @@ function reducer(state: AppState, action: Action): AppState {
         slotCounts: { ...state.slotCounts, [action.shift]: action.count },
       };
 
+    case 'SET_SHIFT_WEIGHT':
+      return {
+        ...state,
+        shiftWeights: { ...state.shiftWeights, [action.shift]: action.weight },
+      };
+
     case 'SET_WEEKLY_CAP':
       return {
         ...state,
@@ -281,6 +290,7 @@ function reducer(state: AppState, action: Action): AppState {
         // Merge with defaults so old exported configs missing qp-am/qp-pm still work
         slotCounts: { ...DEFAULT_SLOT_COUNTS, ...action.config.slotCounts },
         weeklyCaps: migratedWeeklyCaps,
+        shiftWeights: { ...DEFAULT_SHIFT_WEIGHTS, ...action.config.shiftWeights },
         targetMonth: action.config.targetMonth,
         schedule: null,
       };
@@ -349,6 +359,7 @@ export function useAppState() {
   const removeRoleOverride = useCallback((role: Role, team: Team, date: string, period: 'am' | 'pm') => dispatch({ type: 'REMOVE_ROLE_OVERRIDE', role, team, date, period }), []);
   const toggleHoliday = useCallback((date: string) => dispatch({ type: 'TOGGLE_HOLIDAY', date }), []);
   const setSlotCount = useCallback((shift: ShiftType, count: number) => dispatch({ type: 'SET_SLOT_COUNT', shift, count }), []);
+  const setShiftWeight = useCallback((shift: ShiftType, weight: number) => dispatch({ type: 'SET_SHIFT_WEIGHT', shift, weight }), []);
   const setWeeklyCap = useCallback((role: Role, team: Team, max: number) => dispatch({ type: 'SET_WEEKLY_CAP', role, team, maxShiftsPerWeek: max }), []);
   const setWeeklyTypeCap = useCallback((role: Role, team: Team, shift: ShiftType, max: number | null) => dispatch({ type: 'SET_WEEKLY_TYPE_CAP', role, team, shift, max }), []);
   const setTargetMonth = useCallback((month: string) => dispatch({ type: 'SET_TARGET_MONTH', month }), []);
@@ -403,6 +414,7 @@ export function useAppState() {
     removeRoleOverride,
     toggleHoliday,
     setSlotCount,
+    setShiftWeight,
     setWeeklyCap,
     setWeeklyTypeCap,
     setTargetMonth,

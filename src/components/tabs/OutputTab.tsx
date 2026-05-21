@@ -42,7 +42,7 @@ export default function OutputTab() {
           }
           unavailMap.set(s.id, { am, pm });
         }
-        setSchedule(solveSchedule(staff, workdays, state.slotCounts, state.weeklyCaps, unavailMap));
+        setSchedule(solveSchedule(staff, workdays, state.slotCounts, state.weeklyCaps, unavailMap, state.shiftWeights));
       } catch (e) {
         setSchedule({
           month: targetMonth,
