@@ -1,9 +1,9 @@
 import { useApp } from '../../store/AppContext';
 import type { ShiftType } from '../../types';
-import { ALL_ROLES, ALL_TEAMS, DAILY_SHIFTS, WEEKLY_SHIFTS, SHIFT_LABELS, TEAM_LABELS } from '../../types';
+import { ALL_ROLES, ALL_TEAMS, ALL_SHIFTS, DAILY_SHIFTS, WEEKLY_SHIFTS, SHIFT_LABELS, TEAM_LABELS } from '../../types';
 
 export default function ConstraintsTab() {
-  const { state, setSlotCount, setWeeklyCap, setWeeklyTypeCap } = useApp();
+  const { state, setSlotCount, setShiftWeight, setWeeklyCap, setWeeklyTypeCap } = useApp();
 
   return (
     <div>
@@ -32,6 +32,48 @@ export default function ConstraintsTab() {
                       value={state.slotCounts[s]}
                       onChange={e => setSlotCount(s, Math.max(0, parseInt(e.target.value) || 0))}
                     />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="section">
+        <div className="section-title">Shift Type Weighting</div>
+        <div className="card">
+          <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
+            Points counted per assignment when balancing shifts fairly across staff.
+            For QP shifts, the weight is multiplied by the number of workdays in that week.
+          </p>
+          <table className="data-table" style={{ width: 'auto' }}>
+            <thead>
+              <tr>
+                <th>Shift</th>
+                <th>Points</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {ALL_SHIFTS.map(s => (
+                <tr key={s}>
+                  <td><span className={`shift-chip shift-${s}`}>{SHIFT_LABELS[s]}</span></td>
+                  <td>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.1}
+                      value={state.shiftWeights[s]}
+                      onChange={e => {
+                        const val = parseFloat(e.target.value);
+                        if (!isNaN(val) && val >= 0) setShiftWeight(s, val);
+                      }}
+                      style={{ width: 70 }}
+                    />
+                  </td>
+                  <td className="muted" style={{ fontSize: 12 }}>
+                    {WEEKLY_SHIFTS.includes(s) ? 'per day' : 'per shift'}
                   </td>
                 </tr>
               ))}

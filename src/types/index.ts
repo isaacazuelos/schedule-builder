@@ -107,6 +107,18 @@ export const DEFAULT_WEEKLY_CAPS: WeeklyCap[] = ALL_ROLES.flatMap(role =>
   }))
 );
 
+/** Points awarded per assignment for fairness balancing. For QP shifts the weight is applied per workday in the week. */
+export type ShiftWeights = Record<ShiftType, number>;
+
+export const DEFAULT_SHIFT_WEIGHTS: ShiftWeights = {
+  'phones-am':   1,
+  'phones-pm':   1,
+  'inperson-am': 1,
+  'inperson-pm': 1,
+  'qp-am':       1,
+  'qp-pm':       1,
+};
+
 /** Which shift windows a calendar event blocks. */
 export type DayBlock = 'am' | 'pm' | 'both';
 
@@ -148,6 +160,7 @@ export interface AppState {
   holidays: string[]; // YYYY-MM-DD
   slotCounts: SlotCounts;
   weeklyCaps: WeeklyCap[];
+  shiftWeights: ShiftWeights;
   targetMonth: string; // YYYY-MM
   schedule: Schedule | null;
   solveStatus: 'idle' | 'solving';
@@ -162,5 +175,6 @@ export interface ExportedConfig {
   holidays: string[];
   slotCounts: SlotCounts;
   weeklyCaps: WeeklyCap[];
+  shiftWeights?: ShiftWeights;
   targetMonth: string;
 }

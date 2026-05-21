@@ -22,6 +22,7 @@ import type {
   ShiftType,
   SlotCounts,
   WeeklyCap,
+  ShiftWeights,
   AssignmentMap,
   Schedule,
 } from '../types';
@@ -50,6 +51,7 @@ export function solveSchedule(
   slotCounts: SlotCounts,
   weeklyCaps: WeeklyCap[],
   unavailable: UnavailMap,
+  shiftWeights: ShiftWeights,
 ): Schedule {
   const month = workdays[0]?.substring(0, 7) ?? '';
 
@@ -136,9 +138,9 @@ export function solveSchedule(
 
         assignments[chosen.id]![sunday] = qpShift;
         qpBlockedByWeek[w]!.add(chosen.id);
-        totalShifts[chosen.id]! += 5;
-        weeklyShifts[chosen.id]![w]! += 5;
-        weeklyTypeShifts[chosen.id]![w]![qpShift] += 5;
+        totalShifts[chosen.id]! += shiftWeights[qpShift] * weekDays.length;
+        weeklyShifts[chosen.id]![w]! += weekDays.length;
+        weeklyTypeShifts[chosen.id]![w]![qpShift] += weekDays.length;
       }
     }
   }
@@ -200,7 +202,7 @@ export function solveSchedule(
         assignments[chosen.id]![d] = shift;
         assignedOnDay[d]!.add(chosen.id);
         chosenForSlot.add(chosen.id);
-        totalShifts[chosen.id]!++;
+        totalShifts[chosen.id]! += shiftWeights[shift];
         weeklyShifts[chosen.id]![weekIdx]!++;
         weeklyTypeShifts[chosen.id]![weekIdx]![shift]++;
       }
